@@ -26,8 +26,27 @@ jobs:
       - name: Test
         run: npm run test --workspace=@tillflow/pos
 
-      - name: Build image (no push yet — registry wiring lands with the Platform gate)
+      - name: Build image
         run: docker build -f services/pos/Dockerfile -t tillflow-pos:${{ github.sha }} .
+
+      # This is the PR-check build (never pushed anywhere) - the actual deploy pipeline
+      # (deploy-pos.yml) builds and pushes its own image to ECR by commit SHA separately.
+      # Reusing Trivy for the SBOM rather than adding a fourth tool, since it's already
+      # wired in for scanning below.
+      - name: Generate SBOM (CycloneDX)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: image
+          image-ref: tillflow-pos:${{ github.sha }}
+          format: cyclonedx
+          output: sbom-pos.cdx.json
+
+      - name: Upload SBOM as a build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-pos-${{ github.sha }}
+          path: sbom-pos.cdx.json
+          retention-days: 90
 
   terraform:
     name: infra — fmt, validate (plan needs AWS creds, wired once OIDC exists)
@@ -77,7 +96,7 @@ jobs:
           severity: HIGH,CRITICAL
           exit-code: "1"
 
-  # TODO(G1): SBOM + ECR image scan, Terraform plan-on-PR via OIDC once an AWS account/role
-  #           exists, gated apply on master.
+  # TODO(G1): Terraform plan-on-PR + gated apply on master, both via the ci-deploy OIDC
+  #           role that already exists (infra/iam.tf) - next up.
   # TODO(G2): payments / commission jobs, path-filtered so unrelated changes don't rebuild
   #           every service.
