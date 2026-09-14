@@ -1,0 +1,47 @@
+name: Infra apply (gated)
+
+# Only the main infra/ stack - infra/bootstrap stays manually applied on purpose (see its
+# own header comment: it's the one stack that has to bootstrap its own remote state, so
+# it's rarely touched after the first time).
+on:
+  push:
+    branches: [master]
+    paths:
+      - "infra/**"
+      - "!infra/bootstrap/**"
+      - ".github/workflows/infra-apply.yml"
+  workflow_dispatch: {}
+
+permissions:
+  id-token: write # OIDC -> AWS
+  contents: read
+
+jobs:
+  apply:
+    name: terraform apply (requires manual approval)
+    runs-on: ubuntu-latest
+    # This environment must exist in the repo's Settings -> Environments, with at least one
+    # required reviewer configured - that reviewer gate IS the "approved apply" the brief
+    # asks for. GitHub Environments aren't something this repo's own Terraform manages (it's
+    # a GitHub-side setting, not an AWS resource), so this is a one-time manual setup step,
+    # not something `terraform apply` itself creates.
+    environment:
+      name: infra-apply
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.8"
+
+      - name: Assume the ci-deploy role via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::240462142849:role/devops-g5-ci-deploy
+          aws-region: eu-west-1
+
+      - name: terraform apply
+        working-directory: infra
+        run: |
+          terraform init -input=false
+          terraform apply -input=false -auto-approve

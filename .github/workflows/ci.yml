@@ -49,7 +49,7 @@ jobs:
           retention-days: 90
 
   terraform:
-    name: infra — fmt, validate (plan needs AWS creds, wired once OIDC exists)
+    name: infra — fmt + validate (both stacks; bootstrap stays hand-applied, see its own header)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -67,11 +67,37 @@ jobs:
           terraform init -backend=false -input=false
           terraform validate
 
-      - name: validate (main stack)
+      - name: validate (main stack, no backend)
         working-directory: infra
         run: |
           terraform init -backend=false -input=false
           terraform validate
+
+  terraform-plan:
+    name: infra — real plan against AWS (PRs only; bootstrap excluded, see its own header)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write # OIDC -> AWS
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.8"
+
+      - name: Assume the ci-deploy role via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::240462142849:role/devops-g5-ci-deploy
+          aws-region: eu-west-1
+
+      - name: terraform plan (main stack, real backend)
+        working-directory: infra
+        run: |
+          terraform init -input=false
+          terraform plan -input=false -no-color
 
   security-scan:
     name: secrets + dependency + IaC scan
@@ -96,7 +122,7 @@ jobs:
           severity: HIGH,CRITICAL
           exit-code: "1"
 
-  # TODO(G1): Terraform plan-on-PR + gated apply on master, both via the ci-deploy OIDC
-  #           role that already exists (infra/iam.tf) - next up.
+  # Gated apply on merge to master lives in .github/workflows/infra-apply.yml, not here -
+  # separate workflow so it can target its own GitHub Environment approval gate.
   # TODO(G2): payments / commission jobs, path-filtered so unrelated changes don't rebuild
   #           every service.

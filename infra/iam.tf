@@ -151,6 +151,87 @@ data "aws_iam_policy_document" "ci_deploy_permissions" {
   }
 }
 
+# --- Terraform plan (every PR) + gated apply (on merge, behind a GitHub Environment
+# approval - see .github/workflows/infra-apply.yml) for the main infra/ stack. See
+# docs/adr/0006-ci-infra-permissions.md for why this is broad within these service
+# namespaces rather than resource-scoped, and why IAM specifically is the one exception.
+data "aws_iam_policy_document" "ci_deploy_infra" {
+  statement {
+    sid = "InfraServicesRegionScoped"
+    actions = [
+      "ec2:*",
+      "elasticloadbalancing:*",
+      "ecs:*",
+      "ecr:*",
+      "logs:*",
+      "apigateway:*",
+    ]
+    resources = ["*"]
+    condition {
+      test     = "StringEquals"
+      variable = "aws:RequestedRegion"
+      values   = [var.region]
+    }
+  }
+
+  # The one place broad access would be a real privilege-escalation risk: scoped to only
+  # this project's own role names, never arbitrary IAM resources in the shared account.
+  statement {
+    sid = "IamScopedToOwnRoles"
+    actions = [
+      "iam:GetRole",
+      "iam:CreateRole",
+      "iam:DeleteRole",
+      "iam:TagRole",
+      "iam:UntagRole",
+      "iam:PutRolePolicy",
+      "iam:GetRolePolicy",
+      "iam:DeleteRolePolicy",
+      "iam:AttachRolePolicy",
+      "iam:DetachRolePolicy",
+      "iam:ListRolePolicies",
+      "iam:ListAttachedRolePolicies",
+      "iam:PassRole",
+      "iam:ListInstanceProfilesForRole",
+    ]
+    resources = ["arn:aws:iam::240462142849:role/${var.name_prefix}-*"]
+  }
+
+  statement {
+    sid       = "IamReadOidcProvider"
+    actions   = ["iam:GetOpenIDConnectProvider"]
+    resources = [data.aws_iam_openid_connect_provider.github.arn]
+  }
+
+  # The data source looks the provider up *by URL*, which AWS resolves via
+  # ListOpenIDConnectProviders (an account-wide list, no resource-level scoping - "*" is
+  # correct here, not a shortcut) before it can call Get on the specific ARN above.
+  statement {
+    sid       = "IamListOidcProviders"
+    actions   = ["iam:ListOpenIDConnectProviders"]
+    resources = ["*"]
+  }
+
+  # Backend access, scoped to the exact bucket/table from infra/bootstrap - never broader.
+  statement {
+    sid       = "TfstateBucket"
+    actions   = ["s3:GetObject", "s3:PutObject", "s3:ListBucket"]
+    resources = ["arn:aws:s3:::${var.name_prefix}-tfstate-240462142849", "arn:aws:s3:::${var.name_prefix}-tfstate-240462142849/*"]
+  }
+
+  statement {
+    sid       = "TflockTable"
+    actions   = ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:DeleteItem"]
+    resources = ["arn:aws:dynamodb:${var.region}:240462142849:table/${var.name_prefix}-tflock"]
+  }
+}
+
+resource "aws_iam_role_policy" "ci_deploy_infra" {
+  name   = "${var.name_prefix}-ci-deploy-infra"
+  role   = aws_iam_role.ci_deploy.id
+  policy = data.aws_iam_policy_document.ci_deploy_infra.json
+}
+
 resource "aws_iam_role_policy" "ci_deploy" {
   name   = "${var.name_prefix}-ci-deploy"
   role   = aws_iam_role.ci_deploy.id
