@@ -3,11 +3,12 @@
 # api-gateway.tf.
 
 resource "aws_lb" "main" {
-  name               = "${var.name_prefix}-alb"
-  internal           = true
-  load_balancer_type = "application"
-  subnets            = aws_subnet.private[*].id
-  security_groups    = [aws_security_group.alb.id]
+  name                       = "${var.name_prefix}-alb"
+  internal                   = true
+  load_balancer_type         = "application"
+  subnets                    = aws_subnet.private[*].id
+  security_groups            = [aws_security_group.alb.id]
+  drop_invalid_header_fields = true
 
   tags = {
     Name    = "${var.name_prefix}-alb"
@@ -36,6 +37,13 @@ resource "aws_lb_target_group" "pos" {
   }
 }
 
+# Plain HTTP, deliberately: this ALB is internal-only (see the file header) and unreachable
+# except through the API Gateway VPC Link, which already terminates TLS for every public
+# request at the API Gateway edge. Adding HTTPS here too would need an ACM certificate,
+# which needs a domain this project doesn't have yet. Accepted risk, not an oversight - see
+# docs/production-readiness.md for the real fix (a private CA / self-signed cert once a
+# domain exists) and revisit before G5.
+# trivy:ignore:AWS-0054 -- accepted risk, owner sharon2719, revisit before G5; see docs/production-readiness.md
 resource "aws_lb_listener" "pos" {
   load_balancer_arn = aws_lb.main.arn
   port              = 80
