@@ -1,0 +1,56 @@
+Naming + tag audit - region=eu-west-1 prefix=devops-g5
+
+Resource Groups Tagging API returned 37 resources tagged capstone=tillflow.
+
+TYPE                     NAME/SUBJECT                             NAMING   TAGS     MISSING
+----------------------------------------------------------------------------------------------------
+apigateway:*             devops-g5-vpclink                        ok       ok       -
+apigateway:*             devops-g5-api                            ok       ok       -
+apigateway:*             devops-g5-api-default-stage              ok       ok       -
+dynamodb:table           devops-g5-tflock                         ok       ok       -
+ec2:elastic-ip           devops-g5-nat-eip                        ok       ok       -
+ec2:internet-gateway     devops-g5-igw                            ok       ok       -
+ec2:natgateway           devops-g5-nat                            ok       ok       -
+ec2:route-table          devops-g5-private-rt                     ok       ok       -
+ec2:route-table          devops-g5-public-rt                      ok       ok       -
+ec2:security-group       devops-g5-alb-sg                         ok       ok       -
+ec2:security-group       devops-g5-pos-task-sg                    ok       ok       -
+ec2:security-group       devops-g5-vpclink-sg                     ok       ok       -
+ec2:security-group-rule  <naming n/a for this resource type>      ok       ok       -
+ec2:security-group-rule  <naming n/a for this resource type>      ok       ok       -
+ec2:security-group-rule  <naming n/a for this resource type>      ok       ok       -
+ec2:security-group-rule  <naming n/a for this resource type>      ok       ok       -
+ec2:security-group-rule  <naming n/a for this resource type>      ok       ok       -
+ec2:security-group-rule  <naming n/a for this resource type>      ok       ok       -
+ec2:security-group-rule  <naming n/a for this resource type>      ok       ok       -
+ec2:subnet               devops-g5-private-eu-west-1a             ok       ok       -
+ec2:subnet               devops-g5-public-eu-west-1b              ok       ok       -
+ec2:subnet               devops-g5-private-eu-west-1b             ok       ok       -
+ec2:subnet               devops-g5-public-eu-west-1a              ok       ok       -
+ec2:vpc                  devops-g5-vpc                            ok       ok       -
+ecr:repository           devops-g5/pos                            ok       ok       -
+ecs:cluster              devops-g5                                ok       ok       -
+ecs:service              devops-g5/devops-g5-pos                  ok       ok       -
+ecs:task-definition      devops-g5-pos:4                          ok       ok       -
+ecs:task-definition      devops-g5-pos:1                          ok       ok       -
+elasticloadbalancing:listener devops-g5-alb-http                       ok       ok       -
+elasticloadbalancing:loadbalancer devops-g5-alb                            ok       ok       -
+elasticloadbalancing:targetgroup devops-g5-pos-tg/82b63f0b888ec77f        ok       ok       -
+iam:role                 devops-g5-ci-deploy                      ok       ok       -
+iam:role                 devops-g5-iac-ecs-execution-role         ok       FAIL     group,owner,environment,service,managed-by,capstone
+iam:role                 devops-g5-iac-ecs-task-role              ok       FAIL     group,owner,environment,service,managed-by,capstone
+iam:role                 devops-g5-iac-gha-deploy                 ok       FAIL     group,owner,environment,service,managed-by,capstone
+iam:role                 devops-g5-pos-exec                       ok       ok       -
+iam:role                 devops-g5-pos-task                       ok       ok       -
+kms:key                  devops-g5-tfstate-kms                    ok       ok       -
+logs:log-group:          devops-g5/api-gateway                    ok       ok       -
+logs:log-group:          devops-g5/pos                            ok       ok       -
+logs:log-group:          devops-g5/pos-adot                       ok       ok       -
+s3:devops-g5-tfstate-240462142849 devops-g5-tfstate-240462142849           ok       ok       -
+
+43 resources checked, 3 failing.
+
+FAILURES:
+  - arn:aws:iam::240462142849:role/devops-g5-iac-ecs-execution-role: naming_ok=True missing_tags=['group', 'owner', 'environment', 'service', 'managed-by', 'capstone']
+  - arn:aws:iam::240462142849:role/devops-g5-iac-ecs-task-role: naming_ok=True missing_tags=['group', 'owner', 'environment', 'service', 'managed-by', 'capstone']
+  - arn:aws:iam::240462142849:role/devops-g5-iac-gha-deploy: naming_ok=True missing_tags=['group', 'owner', 'environment', 'service', 'managed-by', 'capstone']

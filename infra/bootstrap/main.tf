@@ -24,10 +24,12 @@ provider "aws" {
   region = var.region
   default_tags {
     tags = {
-      managed-by = "terraform"
-      capstone   = "tillflow"
-      group      = var.name_prefix
-      stack      = "bootstrap"
+      managed-by  = "terraform"
+      capstone    = "tillflow"
+      group       = var.name_prefix
+      owner       = var.owner
+      environment = var.environment
+      stack       = "bootstrap"
     }
   }
 }
@@ -45,10 +47,20 @@ resource "aws_kms_key" "tfstate" {
   description             = "${var.name_prefix} Terraform state encryption"
   deletion_window_in_days = 7
   enable_key_rotation     = true
+
+  tags = {
+    Name    = "${var.name_prefix}-tfstate-kms"
+    service = "platform"
+  }
 }
 
 resource "aws_s3_bucket" "tfstate" {
   bucket = local.tfstate_bucket
+
+  tags = {
+    Name    = local.tfstate_bucket
+    service = "platform"
+  }
 }
 
 resource "aws_s3_bucket_versioning" "tfstate" {
@@ -77,6 +89,31 @@ resource "aws_s3_bucket_public_access_block" "tfstate" {
   restrict_public_buckets = true
 }
 
+# Deny any request that isn't over HTTPS - state can contain sensitive values, so plaintext
+# access shouldn't be possible even in principle.
+data "aws_iam_policy_document" "tfstate_https_only" {
+  statement {
+    sid    = "DenyInsecureTransport"
+    effect = "Deny"
+    principals {
+      type        = "*"
+      identifiers = ["*"]
+    }
+    actions   = ["s3:*"]
+    resources = [aws_s3_bucket.tfstate.arn, "${aws_s3_bucket.tfstate.arn}/*"]
+    condition {
+      test     = "Bool"
+      variable = "aws:SecureTransport"
+      values   = ["false"]
+    }
+  }
+}
+
+resource "aws_s3_bucket_policy" "tfstate_https_only" {
+  bucket = aws_s3_bucket.tfstate.id
+  policy = data.aws_iam_policy_document.tfstate_https_only.json
+}
+
 resource "aws_s3_bucket_lifecycle_configuration" "tfstate" {
   bucket = aws_s3_bucket.tfstate.id
   rule {
@@ -97,5 +134,19 @@ resource "aws_dynamodb_table" "tflock" {
   attribute {
     name = "LockID"
     type = "S"
+  }
+
+  point_in_time_recovery {
+    enabled = true
+  }
+
+  server_side_encryption {
+    enabled     = true
+    kms_key_arn = aws_kms_key.tfstate.arn
+  }
+
+  tags = {
+    Name    = local.tflock_table
+    service = "platform"
   }
 }

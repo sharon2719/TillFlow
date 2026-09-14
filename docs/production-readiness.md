@@ -36,21 +36,49 @@ Owner: sharon2719. Revisit: before G5, or immediately if cost budget allows.
 **Single-AZ RDS, no Multi-AZ failover** — disclosed cost trade-off, logged in the ADR
 already. Owner: sharon2719. Revisit: before this ran for real.
 
-**DynamoDB lock table has no point-in-time recovery, no customer-managed KMS key**
-(`infra/bootstrap/main.tf`, Trivy AWS-0024/AWS-0025 — MEDIUM/LOW, doesn't fail CI's
-HIGH/CRITICAL gate but tracked here anyway)
-It's a lock table, not a data store — losing it loses nothing but a lock, recreatable at
-will. Owner: sharon2719. Revisit: low priority, only if this pattern gets reused somewhere
-that isn't just a Terraform lock table.
+**~~DynamoDB lock table has no point-in-time recovery, no customer-managed KMS key~~ — fixed
+2026-09-15.** Both were cheap to add while touching this resource for the naming/tag audit
+(`infra/bootstrap/main.tf`): PITR enabled, encryption now uses the same KMS key as the
+tfstate bucket instead of the AWS-managed default.
 
-**tfstate S3 bucket has access logging disabled** (`infra/bootstrap/main.tf`, Trivy
+**~~tfstate S3 bucket had no HTTPS-only bucket policy~~ — fixed 2026-09-15.** Found by the
+IDE's own Terraform linter while editing this file for the tag audit (Trivy hadn't flagged
+it), not something to leave sitting once seen: added a policy denying any request where
+`aws:SecureTransport` is false.
+
+**tfstate S3 bucket still has access logging disabled** (`infra/bootstrap/main.tf`, Trivy
 AWS-0089 — LOW)
-Owner: sharon2719. Revisit: cheap to add, will do alongside the next bootstrap change.
+Needs a target bucket to log to. That's the `logs` bucket from `docs/adr/0004`, which
+doesn't exist yet either — deliberately not building it as a side effect of this audit pass,
+since that's real scope on its own (bucket + lifecycle + the log-delivery grant), not a
+one-line addition like the other two above.
+Owner: sharon2719. Revisit: when the `logs`/`artifacts`/`backups`/`evidence` buckets from
+ADR-0004 get built.
+
+**ALB access logs not configured** (`infra/alb.tf`, flagged by the IDE's own Terraform
+linter while adding tags there for the audit)
+Same root cause as the item above - needs the same `logs` bucket from ADR-0004. Tracked
+here as its own line since it's a separate resource, but it's the same underlying gap and
+the same fix.
+Owner: sharon2719. Revisit: same as above.
 
 **VPC Flow Logs not enabled** (`infra/network.tf`, Trivy AWS-0178 — MEDIUM)
 Would help incident investigation but adds a CloudWatch Logs cost for a capstone that
 isn't being attacked. Owner: sharon2719. Revisit: before G4's failure drills, since flow
 logs would make a couple of those drills easier to narrate.
+
+## CI/CD
+
+**Infra apply has no formal reviewer-approval gate** (`.github/workflows/infra-apply.yml`)
+The original design used a GitHub Environment's "required reviewers" protection rule.
+Confirmed directly in the repo's environment settings that this section doesn't render at
+all — it's a paid-plan feature (Pro/Team/Enterprise) for private repositories, not available
+on this repo's current plan. Replaced with a manual-trigger-only workflow (no automatic
+apply on merge at all): a human has to deliberately open Actions and run it. Weaker than a
+real reviewer step, but still a genuine gate, and free.
+Owner: sharon2719. Revisit: if this repo ever moves to a paid GitHub plan, add a required
+reviewer to the `infra-apply` environment and switch the workflow back to triggering on
+push - both are small, contained changes.
 
 ## Registry-wide scanning (see also docs/adr/0005-shared-account-boundaries.md)
 

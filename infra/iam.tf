@@ -14,6 +14,10 @@ data "aws_iam_policy_document" "ecs_tasks_assume" {
 resource "aws_iam_role" "pos_exec" {
   name               = "${var.name_prefix}-pos-exec"
   assume_role_policy = data.aws_iam_policy_document.ecs_tasks_assume.json
+
+  tags = {
+    service = "pos"
+  }
 }
 
 resource "aws_iam_role_policy_attachment" "pos_exec_managed" {
@@ -29,6 +33,10 @@ resource "aws_iam_role_policy_attachment" "pos_exec_managed" {
 resource "aws_iam_role" "pos_task" {
   name               = "${var.name_prefix}-pos-task"
   assume_role_policy = data.aws_iam_policy_document.ecs_tasks_assume.json
+
+  tags = {
+    service = "pos"
+  }
 }
 
 resource "aws_iam_role_policy_attachment" "pos_task_cloudwatch" {
@@ -80,9 +88,17 @@ data "aws_iam_policy_document" "ci_deploy_assume" {
       # actually sent. Both patterns require the literal "@" right after the owner/repo name
       # (not a bare wildcard suffix) so this can't also match an unrelated account like
       # "sharon27190therorg".
+      #
+      # Also confirmed via CloudTrail: GitHub emits the repo name with inconsistent casing
+      # depending on the triggering event - "tillflow" on push-triggered runs,
+      # "TillFlow" on pull_request-triggered ones (same owner/repo IDs both times, so
+      # definitely the same repo - this is a GitHub-side quirk, not two different repos).
+      # StringLike has no case-insensitive form, so both castings are listed explicitly.
       values = [
-        "repo:sharon2719/tillflow:*",     # classic form, no immutable IDs
-        "repo:sharon2719@*/tillflow@*:*", # immutable-ID form
+        "repo:sharon2719/tillflow:*",     # classic form, no immutable IDs, lowercase
+        "repo:sharon2719/TillFlow:*",     # classic form, no immutable IDs, PR casing
+        "repo:sharon2719@*/tillflow@*:*", # immutable-ID form, lowercase
+        "repo:sharon2719@*/TillFlow@*:*", # immutable-ID form, PR casing
       ]
     }
   }
@@ -91,6 +107,10 @@ data "aws_iam_policy_document" "ci_deploy_assume" {
 resource "aws_iam_role" "ci_deploy" {
   name               = "${var.name_prefix}-ci-deploy"
   assume_role_policy = data.aws_iam_policy_document.ci_deploy_assume.json
+
+  tags = {
+    service = "platform"
+  }
 }
 
 data "aws_iam_policy_document" "ci_deploy_permissions" {
@@ -223,6 +243,18 @@ data "aws_iam_policy_document" "ci_deploy_infra" {
     sid       = "TflockTable"
     actions   = ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:DeleteItem"]
     resources = ["arn:aws:dynamodb:${var.region}:240462142849:table/${var.name_prefix}-tflock"]
+  }
+
+  # The tflock table (and the tfstate bucket) are encrypted with this customer-managed key
+  # (infra/bootstrap/main.tf) rather than an AWS-managed default - added during the naming/
+  # tag audit pass. That means every state lock/read now needs Decrypt on it too, which the
+  # two statements above don't cover on their own. ARN is hardcoded the same way the bucket/
+  # table names already are in infra/backend.tf - bootstrap is a separate Terraform stack
+  # with no cross-stack data source wired up.
+  statement {
+    sid       = "TfstateKmsKey"
+    actions   = ["kms:Decrypt", "kms:GenerateDataKey"]
+    resources = ["arn:aws:kms:${var.region}:240462142849:key/0257835a-a3a1-487a-b740-79ea0b801eaf"]
   }
 }
 

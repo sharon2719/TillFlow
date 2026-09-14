@@ -53,4 +53,11 @@ resource "aws_lb_listener" "pos" {
     type             = "forward"
     target_group_arn = aws_lb_target_group.pos.arn
   }
+
+  # A listener has no name of its own in AWS's model - Name here is only for the audit
+  # script and console readability, not something AWS exposes as an editable property.
+  tags = {
+    Name    = "${var.name_prefix}-alb-http"
+    service = "pos"
+  }
 }
