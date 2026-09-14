@@ -203,6 +203,15 @@ data "aws_iam_policy_document" "ci_deploy_infra" {
     resources = [data.aws_iam_openid_connect_provider.github.arn]
   }
 
+  # The data source looks the provider up *by URL*, which AWS resolves via
+  # ListOpenIDConnectProviders (an account-wide list, no resource-level scoping - "*" is
+  # correct here, not a shortcut) before it can call Get on the specific ARN above.
+  statement {
+    sid       = "IamListOidcProviders"
+    actions   = ["iam:ListOpenIDConnectProviders"]
+    resources = ["*"]
+  }
+
   # Backend access, scoped to the exact bucket/table from infra/bootstrap - never broader.
   statement {
     sid       = "TfstateBucket"
