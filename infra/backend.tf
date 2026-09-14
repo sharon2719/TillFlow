@@ -6,10 +6,10 @@
 #
 # terraform {
 #   backend "s3" {
-#     bucket         = "devops-g<N>-tfstate-<account-id>"
+#     bucket         = "devops-g5-tfstate-240462142849"
 #     key            = "tillflow/main.tfstate"
-#     region         = "af-south-1"
-#     dynamodb_table = "devops-g<N>-tflock"
+#     region         = "eu-west-1"
+#     dynamodb_table = "devops-g5-tflock"
 #     encrypt        = true
 #   }
 # }

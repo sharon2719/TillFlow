@@ -1,13 +1,13 @@
 variable "name_prefix" {
-  description = "Resource name prefix, e.g. devops-g<N>. Placeholder 'devops-g0' until the real group/account number is assigned — see docs/adr/0004-object-storage.md."
+  description = "Resource name prefix. devops-g5 per the cohort's SSO role (group 5) — see docs/adr/0004-object-storage.md."
   type        = string
-  default     = "devops-g0"
+  default     = "devops-g5"
 }
 
 variable "region" {
-  description = "AWS region. See docs/adr/0002-region.md."
+  description = "AWS region. Cohort-assigned (group 5 = eu-west-1) — see docs/adr/0002-region.md."
   type        = string
-  default     = "af-south-1"
+  default     = "eu-west-1"
 }
 
 variable "environment" {

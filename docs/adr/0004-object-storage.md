@@ -1,7 +1,8 @@
 # ADR-0004: S3 bucket layout
 
 ## Status
-Proposed — 2026-09-14
+Accepted — 2026-09-15 (group number and account confirmed via the cohort's AWS SSO role,
+see `docs/adr/0002-region.md`)
 
 ## Decision
 One bucket per purpose, all private, all versioned, all encrypted with a customer-managed
@@ -9,17 +10,13 @@ KMS key, all with block-public-access on:
 
 | Bucket | Purpose | Lifecycle |
 |---|---|---|
-| `devops-g<N>-tfstate-<account-id>` | Terraform remote state | Versioning on, never expires; noncurrent versions kept 90 days |
-| `devops-g<N>-artifacts-<account-id>` | Pipeline/build artifacts, SBOMs | Expire after 30 days |
-| `devops-g<N>-logs-<account-id>` | ALB access logs | Transition to Glacier at 30 days, expire at 180 days |
-| `devops-g<N>-backups-<account-id>` | DB exports / restore-drill snapshots | Expire after 30 days (RDS automated backups are the real backup path; this bucket is for exported dumps used in restore drills) |
-| `devops-g<N>-evidence-<account-id>` | Capstone evidence pack artifacts | Never expires |
+| `devops-g5-tfstate-240462142849` | Terraform remote state | Versioning on, never expires; noncurrent versions kept 90 days |
+| `devops-g5-artifacts-240462142849` | Pipeline/build artifacts, SBOMs | Expire after 30 days |
+| `devops-g5-logs-240462142849` | ALB access logs | Transition to Glacier at 30 days, expire at 180 days |
+| `devops-g5-backups-240462142849` | DB exports / restore-drill snapshots | Expire after 30 days (RDS automated backups are the real backup path; this bucket is for exported dumps used in restore drills) |
+| `devops-g5-evidence-240462142849` | Capstone evidence pack artifacts | Never expires |
 
-The state bucket is paired with a DynamoDB table, `devops-g<N>-tflock`, for state locking.
-
-`<N>` is the assigned group/account number — not yet known solo, so every reference in
-Terraform and docs uses the `devops-g<N>-` prefix literally until it's assigned, at which
-point a single variable substitution fixes every resource name at once.
+The state bucket is paired with a DynamoDB table, `devops-g5-tflock`, for state locking.
 
 ## Consequences
 - Five buckets to manage instead of one "just throw it all in one bucket" bucket — more

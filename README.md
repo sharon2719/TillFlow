@@ -17,7 +17,7 @@ written once at the end.
 - Node.js 22, npm 10+
 - Docker
 - Terraform ~1.9+ (validated against 1.15 locally)
-- An AWS account with credentials configured for `af-south-1` (see `docs/adr/0002-region.md`)
+- An AWS account with credentials configured for `eu-west-1` (see `docs/adr/0002-region.md`)
 
 ## Stand up the Terraform backend (one-time, by hand)
 
