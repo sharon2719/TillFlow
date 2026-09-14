@@ -24,6 +24,16 @@ resource "aws_ecs_task_definition" "pos" {
       name      = "pos"
       image     = "${aws_ecr_repository.pos.repository_url}:${var.pos_image_tag}"
       essential = true
+      # Non-root already at the Dockerfile level (see services/pos/Dockerfile); this closes
+      # out the "read-only" half of the golden path's container pattern. /tmp is the only
+      # writable path Node itself might reach for, given via tmpfs rather than a real
+      # writable layer.
+      readonlyRootFilesystem = true
+      linuxParameters = {
+        tmpfs = [
+          { containerPath = "/tmp", size = 64 }
+        ]
+      }
       portMappings = [
         { containerPort = 3000, protocol = "tcp" }
       ]
@@ -53,6 +63,14 @@ resource "aws_ecs_task_definition" "pos" {
       image     = "public.ecr.aws/aws-observability/aws-otel-collector:v0.43.0"
       essential = true
       command   = ["--config=/etc/ecs/ecs-default-config.yaml"]
+      # Read-only here too - the collector doesn't need to persist anything, and if it
+      # ever needs scratch space (buffering, etc.) it has tmpfs /tmp same as pos.
+      readonlyRootFilesystem = true
+      linuxParameters = {
+        tmpfs = [
+          { containerPath = "/tmp", size = 64 }
+        ]
+      }
       environment = [
         { name = "AWS_REGION", value = var.region }
       ]
