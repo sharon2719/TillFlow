@@ -1,0 +1,14 @@
+# TillFlow — solo build. One DRI across every path.
+# See docs/ownership.md for the area-by-area rationale.
+
+*                           @sharon2719
+
+services/pos/               @sharon2719
+services/payments/          @sharon2719
+services/commission/        @sharon2719
+services/web/               @sharon2719
+services/_shared/           @sharon2719
+infra/                      @sharon2719
+.github/                    @sharon2719
+docs/                       @sharon2719
+evidence/                   @sharon2719

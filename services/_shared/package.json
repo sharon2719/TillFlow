@@ -1,0 +1,8 @@
+{
+  "name": "@tillflow/shared",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Shared M-Pesa adapter interface, OTel setup and Docker base pattern. Not yet consumed by any service — see README.",
+  "main": "src/index.ts",
+  "types": "src/index.ts"
+}

@@ -1,0 +1,6 @@
+{
+  "name": "@tillflow/commission",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Not yet built. EventBridge-triggered worker; calls Payments' API for B2C, never Daraja directly. See docs/architecture.md."
+}

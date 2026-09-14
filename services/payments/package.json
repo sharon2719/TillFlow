@@ -1,0 +1,6 @@
+{
+  "name": "@tillflow/payments",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Not yet built. Owns Daraja auth, STK Push, callbacks, transaction query, B2C, reconciliation. See docs/architecture.md."
+}
