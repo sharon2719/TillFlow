@@ -139,6 +139,16 @@ data "aws_iam_policy_document" "ci_deploy_permissions" {
       values   = ["ecs-tasks.amazonaws.com"]
     }
   }
+
+  # Read-only, for the post-deploy smoke test's `aws apigatewayv2 get-apis` lookup of the
+  # public endpoint. API Gateway's IAM actions don't support scoping to a single API by ARN
+  # for the *list* operation (GetApis lists across the account), so this is read-only
+  # (no write actions) rather than resource-scoped.
+  statement {
+    sid       = "ApiGatewayReadForSmokeTest"
+    actions   = ["apigateway:GET"]
+    resources = ["arn:aws:apigateway:${var.region}::/apis", "arn:aws:apigateway:${var.region}::/apis/*"]
+  }
 }
 
 resource "aws_iam_role_policy" "ci_deploy" {
