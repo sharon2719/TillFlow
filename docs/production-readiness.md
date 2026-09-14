@@ -52,6 +52,19 @@ Would help incident investigation but adds a CloudWatch Logs cost for a capstone
 isn't being attacked. Owner: sharon2719. Revisit: before G4's failure drills, since flow
 logs would make a couple of those drills easier to narrate.
 
+## CI/CD
+
+**Infra apply has no formal reviewer-approval gate** (`.github/workflows/infra-apply.yml`)
+The original design used a GitHub Environment's "required reviewers" protection rule.
+Confirmed directly in the repo's environment settings that this section doesn't render at
+all — it's a paid-plan feature (Pro/Team/Enterprise) for private repositories, not available
+on this repo's current plan. Replaced with a manual-trigger-only workflow (no automatic
+apply on merge at all): a human has to deliberately open Actions and run it. Weaker than a
+real reviewer step, but still a genuine gate, and free.
+Owner: sharon2719. Revisit: if this repo ever moves to a paid GitHub plan, add a required
+reviewer to the `infra-apply` environment and switch the workflow back to triggering on
+push - both are small, contained changes.
+
 ## Registry-wide scanning (see also docs/adr/0005-shared-account-boundaries.md)
 
 ECR enhanced (Inspector) scanning is a registry-wide singleton in a shared cohort account,

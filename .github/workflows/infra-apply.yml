@@ -3,13 +3,19 @@ name: Infra apply (gated)
 # Only the main infra/ stack - infra/bootstrap stays manually applied on purpose (see its
 # own header comment: it's the one stack that has to bootstrap its own remote state, so
 # it's rarely touched after the first time).
+#
+# Manual trigger only - deliberately NOT on push. The original design used a GitHub
+# Environment's "required reviewers" protection rule as the approval gate, but that's a
+# paid-plan feature for private repositories (Pro/Team/Enterprise) and isn't available here.
+# Confirmed by checking the environment's settings directly: the Deployment protection
+# rules section (where "Required reviewers" lives) doesn't render at all on this repo's
+# current plan - not a misconfiguration, a plan limitation. Rather than have infra changes
+# silently auto-apply on every merge with no gate at all, this requires a human to
+# deliberately open the Actions tab and click "Run workflow" after reviewing the merged
+# PR's plan output - not as strong as a real reviewer-approval step, but it's a genuine gate
+# (nothing applies without someone consciously choosing to run it), and it's free. Logged in
+# docs/production-readiness.md.
 on:
-  push:
-    branches: [master]
-    paths:
-      - "infra/**"
-      - "!infra/bootstrap/**"
-      - ".github/workflows/infra-apply.yml"
   workflow_dispatch: {}
 
 permissions:
@@ -18,13 +24,12 @@ permissions:
 
 jobs:
   apply:
-    name: terraform apply (requires manual approval)
+    name: terraform apply (manually triggered - see workflow header)
     runs-on: ubuntu-latest
-    # This environment must exist in the repo's Settings -> Environments, with at least one
-    # required reviewer configured - that reviewer gate IS the "approved apply" the brief
-    # asks for. GitHub Environments aren't something this repo's own Terraform manages (it's
-    # a GitHub-side setting, not an AWS resource), so this is a one-time manual setup step,
-    # not something `terraform apply` itself creates.
+    # Kept associated with the infra-apply environment for audit visibility in the repo's
+    # Environments tab, even without a reviewer gate on this plan - if this repo ever moves
+    # to a plan with environment protection rules, adding a required reviewer here is the
+    # only change needed to get the originally-intended stronger gate back.
     environment:
       name: infra-apply
     steps:
