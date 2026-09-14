@@ -33,11 +33,17 @@ resource "aws_internet_gateway" "main" {
 }
 
 resource "aws_subnet" "public" {
-  count                   = var.az_count
-  vpc_id                  = aws_vpc.main.id
-  cidr_block              = local.public_subnet_cidrs[count.index]
-  availability_zone       = local.azs[count.index]
-  map_public_ip_on_launch = true
+  count             = var.az_count
+  vpc_id            = aws_vpc.main.id
+  cidr_block        = local.public_subnet_cidrs[count.index]
+  availability_zone = local.azs[count.index]
+
+  # No auto-assigned public IPs here (Trivy AWS-0164). Nothing placed in this subnet needs
+  # it: the NAT gateway uses the Elastic IP allocated explicitly below, and an ALB's public
+  # IPs are managed by the load balancer itself, not this subnet setting. Leaving it on
+  # would only make it easier for something dropped into this subnet later to end up with
+  # an implicit public IP nobody decided on.
+  map_public_ip_on_launch = false
 
   tags = {
     Name    = "${var.name_prefix}-public-${local.azs[count.index]}"
