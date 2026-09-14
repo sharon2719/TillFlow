@@ -3,7 +3,7 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [master]
 
 jobs:
   pos:
@@ -29,6 +29,55 @@ jobs:
       - name: Build image (no push yet — registry wiring lands with the Platform gate)
         run: docker build -f services/pos/Dockerfile -t tillflow-pos:${{ github.sha }} .
 
-  # TODO(G1): secret + dependency + IaC scan, SBOM, image scan, Terraform plan-on-PR.
+  terraform:
+    name: infra — fmt, validate (plan needs AWS creds, wired once OIDC exists)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.8"
+
+      - name: fmt check
+        run: terraform fmt -check -recursive infra/
+
+      - name: validate (bootstrap)
+        working-directory: infra/bootstrap
+        run: |
+          terraform init -backend=false -input=false
+          terraform validate
+
+      - name: validate (main stack)
+        working-directory: infra
+        run: |
+          terraform init -backend=false -input=false
+          terraform validate
+
+  security-scan:
+    name: secrets + dependency + IaC scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Trivy — filesystem (secrets + dependency vulnerabilities)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+
+      - name: Trivy — IaC misconfiguration (infra/)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: config
+          scan-ref: infra/
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+
+  # TODO(G1): SBOM + ECR image scan, Terraform plan-on-PR via OIDC once an AWS account/role
+  #           exists, gated apply on master.
   # TODO(G2): payments / commission jobs, path-filtered so unrelated changes don't rebuild
   #           every service.
