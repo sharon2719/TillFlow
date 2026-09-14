@@ -124,5 +124,8 @@ jobs:
 
   # Gated apply on merge to master lives in .github/workflows/infra-apply.yml, not here -
   # separate workflow so it can target its own GitHub Environment approval gate.
+
+  # TODO(G1): Terraform plan-on-PR + gated apply on master, both via the ci-deploy OIDC
+  #           role that already exists (infra/iam.tf) - next up.
   # TODO(G2): payments / commission jobs, path-filtered so unrelated changes don't rebuild
   #           every service.
