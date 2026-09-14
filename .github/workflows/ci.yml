@@ -26,11 +26,30 @@ jobs:
       - name: Test
         run: npm run test --workspace=@tillflow/pos
 
-      - name: Build image (no push yet — registry wiring lands with the Platform gate)
+      - name: Build image
         run: docker build -f services/pos/Dockerfile -t tillflow-pos:${{ github.sha }} .
 
+      # This is the PR-check build (never pushed anywhere) - the actual deploy pipeline
+      # (deploy-pos.yml) builds and pushes its own image to ECR by commit SHA separately.
+      # Reusing Trivy for the SBOM rather than adding a fourth tool, since it's already
+      # wired in for scanning below.
+      - name: Generate SBOM (CycloneDX)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: image
+          image-ref: tillflow-pos:${{ github.sha }}
+          format: cyclonedx
+          output: sbom-pos.cdx.json
+
+      - name: Upload SBOM as a build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-pos-${{ github.sha }}
+          path: sbom-pos.cdx.json
+          retention-days: 90
+
   terraform:
-    name: infra — fmt, validate (plan needs AWS creds, wired once OIDC exists)
+    name: infra — fmt + validate (both stacks; bootstrap stays hand-applied, see its own header)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -48,11 +67,37 @@ jobs:
           terraform init -backend=false -input=false
           terraform validate
 
-      - name: validate (main stack)
+      - name: validate (main stack, no backend)
         working-directory: infra
         run: |
           terraform init -backend=false -input=false
           terraform validate
+
+  terraform-plan:
+    name: infra — real plan against AWS (PRs only; bootstrap excluded, see its own header)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write # OIDC -> AWS
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.8"
+
+      - name: Assume the ci-deploy role via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::240462142849:role/devops-g5-ci-deploy
+          aws-region: eu-west-1
+
+      - name: terraform plan (main stack, real backend)
+        working-directory: infra
+        run: |
+          terraform init -input=false
+          terraform plan -input=false -no-color
 
   security-scan:
     name: secrets + dependency + IaC scan
@@ -77,7 +122,7 @@ jobs:
           severity: HIGH,CRITICAL
           exit-code: "1"
 
-  # TODO(G1): SBOM + ECR image scan, Terraform plan-on-PR via OIDC once an AWS account/role
-  #           exists, gated apply on master.
+  # Gated apply on merge to master lives in .github/workflows/infra-apply.yml, not here -
+  # separate workflow so it can target its own GitHub Environment approval gate.
   # TODO(G2): payments / commission jobs, path-filtered so unrelated changes don't rebuild
   #           every service.
