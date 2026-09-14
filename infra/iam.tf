@@ -72,7 +72,18 @@ data "aws_iam_policy_document" "ci_deploy_assume" {
     condition {
       test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:sharon2719/tillflow:*"]
+      # GitHub's newer OIDC claims append immutable numeric IDs to guard against subject
+      # spoofing via repo rename/delete+recreate, e.g.
+      # "repo:sharon2719@79141719/tillflow@1370048911:ref:refs/heads/master" instead of the
+      # classic "repo:sharon2719/tillflow:ref:refs/heads/master". Confirmed via CloudTrail
+      # (AssumeRoleWithWebIdentity AccessDenied events) that the immutable-ID form is what's
+      # actually sent. Both patterns require the literal "@" right after the owner/repo name
+      # (not a bare wildcard suffix) so this can't also match an unrelated account like
+      # "sharon27190therorg".
+      values = [
+        "repo:sharon2719/tillflow:*",     # classic form, no immutable IDs
+        "repo:sharon2719@*/tillflow@*:*", # immutable-ID form
+      ]
     }
   }
 }
