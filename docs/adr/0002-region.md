@@ -1,37 +1,32 @@
 # ADR-0002: AWS region
 
 ## Status
-Proposed — 2026-09-14 (confirm against the current AWS region/service list before the
-G1 Terraform apply; service availability in af-south-1 shifts over time).
+Accepted — 2026-09-15
 
 ## Context
-TillFlow's users (till attendants, tenant owners) and its one hard external dependency,
-the Safaricom Daraja API, are East Africa Time (EAT). AWS has no region physically in East
-Africa. The brief requires every resource to declare and justify a single region.
+The brief requires deploying only in "your assigned Region" and documenting why in an ADR.
+This isn't actually a free choice: it's fixed by the AWS SSO role the cohort issued —
+`AWSReservedSSO_DevOpsCohort-group5-eu-west-1_...` — which also confirms the group number
+(5) that `devops-g<N>` resource naming should use, and the account (`240462142849`).
+
+An earlier draft of this ADR proposed af-south-1 on the reasoning that it's geographically
+closest to EAT/Daraja traffic. That reasoning no longer applies now that the region is
+externally assigned rather than chosen — the earlier version was wrong and is replaced by
+this one, not extended.
 
 ## Decision
-Deploy to **af-south-1 (Cape Town)** — the AWS region geographically closest to EAT
-traffic and to Daraja's endpoints, rather than defaulting to us-east-1 or eu-west-1.
+Deploy to **eu-west-1 (Ireland)** — the cohort-assigned region for group 5, confirmed via
+the SSO role name and `aws sts get-caller-identity`.
 
-Required services must all be available in af-south-1 before this ADR can be marked
-Accepted:
-- ECS Fargate, ALB, API Gateway (REST + VPC Link)
-- RDS for PostgreSQL, ElastiCache (Redis/Valkey)
-- SQS (+ DLQ), EventBridge
-- S3, DynamoDB (state lock), Secrets Manager, KMS
-- ECR with enhanced scanning
-- X-Ray
+eu-west-1 is one of AWS's original, fully-built-out regions, so unlike the af-south-1 draft
+there's no open question about service availability: ECS Fargate, ALB, API Gateway (REST +
+VPC Link), RDS for PostgreSQL, ElastiCache, SQS/DLQ, EventBridge, S3, DynamoDB, Secrets
+Manager, KMS, ECR (with enhanced scanning), and X-Ray are all available without exception.
 
 ## Consequences
-- Higher per-unit pricing than us-east-1 in some service categories; acceptable trade for
-  latency to Daraja and EAT users, and it's the honest answer to "why this region" in the
-  live defence.
-- Fewer Availability Zones to choose from than a larger region — confirm at least two AZs
-  are usable for the required Multi-AZ RDS + private-subnet ECS layout before G1.
-- CI/CD roles (OIDC, CodePipeline) are scoped to this single region only.
-
-## Follow-up before Accepted
-- [ ] Verify every service above is actually orderable in af-south-1 for this AWS account
-      (some services roll out to newer regions later than others).
-- [ ] If any required service is unavailable, fall back to eu-west-1 (Ireland) as the next
-      closest fully-supported region and update this ADR with the reason.
+- Higher latency to Daraja/EAT users than a closer region would have, but that trade-off
+  isn't TillFlow's to make — the assignment fixes the region, and the honest answer in the
+  live defence is "cohort-assigned," not a latency optimization.
+- No fallback-region contingency needed (unlike the af-south-1 draft's open TODO) — every
+  required service is available here.
+- All resource names and tags use `devops-g5-` per `docs/adr/0004-object-storage.md`.
