@@ -7,7 +7,10 @@ resource "aws_apigatewayv2_vpc_link" "main" {
   subnet_ids         = aws_subnet.private[*].id
   security_group_ids = [aws_security_group.vpc_link.id]
 
+  # The Resource Groups Tagging API doesn't expose this resource's own `name` property, only
+  # its tags - Name here is what the naming/tag audit (and the console) actually reads.
   tags = {
+    Name    = "${var.name_prefix}-vpclink"
     service = "network"
   }
 }
@@ -17,6 +20,7 @@ resource "aws_apigatewayv2_api" "main" {
   protocol_type = "HTTP"
 
   tags = {
+    Name    = "${var.name_prefix}-api"
     service = "platform"
   }
 }
@@ -49,7 +53,9 @@ resource "aws_cloudwatch_log_group" "api_gateway_access" {
 }
 
 resource "aws_apigatewayv2_stage" "default" {
-  api_id      = aws_apigatewayv2_api.main.id
+  api_id = aws_apigatewayv2_api.main.id
+  # "$default" is a reserved, exact literal AWS requires for the default/root stage - it
+  # can't be prefixed like everything else. The Name tag below is what stands in for it.
   name        = "$default"
   auto_deploy = true
 
@@ -67,6 +73,7 @@ resource "aws_apigatewayv2_stage" "default" {
   }
 
   tags = {
+    Name    = "${var.name_prefix}-api-default-stage"
     service = "platform"
   }
 }

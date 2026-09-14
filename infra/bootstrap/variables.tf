@@ -9,3 +9,15 @@ variable "region" {
   type        = string
   default     = "eu-west-1"
 }
+
+variable "owner" {
+  description = "DRI tag value, see docs/ownership.md."
+  type        = string
+  default     = "sharon2719"
+}
+
+variable "environment" {
+  description = "Environment tag."
+  type        = string
+  default     = "dev"
+}

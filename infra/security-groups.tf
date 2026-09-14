@@ -70,6 +70,10 @@ resource "aws_vpc_security_group_egress_rule" "vpc_link_to_alb" {
   from_port                    = 80
   to_port                      = 80
   ip_protocol                  = "tcp"
+
+  tags = {
+    service = "network"
+  }
 }
 
 resource "aws_vpc_security_group_ingress_rule" "alb_from_vpc_link" {
@@ -79,6 +83,10 @@ resource "aws_vpc_security_group_ingress_rule" "alb_from_vpc_link" {
   from_port                    = 80
   to_port                      = 80
   ip_protocol                  = "tcp"
+
+  tags = {
+    service = "network"
+  }
 }
 
 # --- alb -> pos_task (port 3000) ---
@@ -90,6 +98,10 @@ resource "aws_vpc_security_group_egress_rule" "alb_to_pos_task" {
   from_port                    = 3000
   to_port                      = 3000
   ip_protocol                  = "tcp"
+
+  tags = {
+    service = "pos"
+  }
 }
 
 resource "aws_vpc_security_group_ingress_rule" "pos_task_from_alb" {
@@ -99,6 +111,10 @@ resource "aws_vpc_security_group_ingress_rule" "pos_task_from_alb" {
   from_port                    = 3000
   to_port                      = 3000
   ip_protocol                  = "tcp"
+
+  tags = {
+    service = "pos"
+  }
 }
 
 # --- pos_task egress ---
@@ -113,6 +129,10 @@ resource "aws_vpc_security_group_egress_rule" "pos_task_dns_tcp" {
   from_port         = 53
   to_port           = 53
   ip_protocol       = "tcp"
+
+  tags = {
+    service = "pos"
+  }
 }
 
 resource "aws_vpc_security_group_egress_rule" "pos_task_dns_udp" {
@@ -122,6 +142,10 @@ resource "aws_vpc_security_group_egress_rule" "pos_task_dns_udp" {
   from_port         = 53
   to_port           = 53
   ip_protocol       = "udp"
+
+  tags = {
+    service = "pos"
+  }
 }
 
 # ECR image pulls, CloudWatch Logs, X-Ray, and STS (for the exec role) are all reached as
@@ -138,4 +162,8 @@ resource "aws_vpc_security_group_egress_rule" "pos_task_https" {
   from_port         = 443
   to_port           = 443
   ip_protocol       = "tcp"
+
+  tags = {
+    service = "pos"
+  }
 }

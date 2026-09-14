@@ -14,6 +14,10 @@ data "aws_iam_policy_document" "ecs_tasks_assume" {
 resource "aws_iam_role" "pos_exec" {
   name               = "${var.name_prefix}-pos-exec"
   assume_role_policy = data.aws_iam_policy_document.ecs_tasks_assume.json
+
+  tags = {
+    service = "pos"
+  }
 }
 
 resource "aws_iam_role_policy_attachment" "pos_exec_managed" {
@@ -29,6 +33,10 @@ resource "aws_iam_role_policy_attachment" "pos_exec_managed" {
 resource "aws_iam_role" "pos_task" {
   name               = "${var.name_prefix}-pos-task"
   assume_role_policy = data.aws_iam_policy_document.ecs_tasks_assume.json
+
+  tags = {
+    service = "pos"
+  }
 }
 
 resource "aws_iam_role_policy_attachment" "pos_task_cloudwatch" {
@@ -91,6 +99,10 @@ data "aws_iam_policy_document" "ci_deploy_assume" {
 resource "aws_iam_role" "ci_deploy" {
   name               = "${var.name_prefix}-ci-deploy"
   assume_role_policy = data.aws_iam_policy_document.ci_deploy_assume.json
+
+  tags = {
+    service = "platform"
+  }
 }
 
 data "aws_iam_policy_document" "ci_deploy_permissions" {
