@@ -7,6 +7,14 @@
 # alb's ID) without a circular dependency - the bare security groups have no dependency on
 # each other at all, only the separate rule resources do, and by the time those are
 # created both groups already exist.
+#
+# Do NOT add `ingress = []` / `egress = []` to these bare security groups. That's only a
+# one-time migration trick (used once, then removed) to force Terraform to revoke inline
+# rules left over from an earlier version of this file - it works by making the SG resource
+# treat "no rules" as its permanently-enforced desired state, which then fights the separate
+# rule resources below forever (each apply alternately reverting the other). Confirmed this
+# the hard way: leaving it in place made every subsequent plan want to delete the very rules
+# the standalone resources had just created.
 
 resource "aws_security_group" "vpc_link" {
   name_prefix = "${var.name_prefix}-vpclink-"
@@ -21,8 +29,6 @@ resource "aws_security_group" "vpc_link" {
   lifecycle {
     create_before_destroy = true
   }
-  ingress = []
-  egress  = []
 }
 
 resource "aws_security_group" "alb" {
@@ -38,8 +44,6 @@ resource "aws_security_group" "alb" {
   lifecycle {
     create_before_destroy = true
   }
-  ingress = []
-  egress  = []
 }
 
 resource "aws_security_group" "pos_task" {
@@ -55,8 +59,6 @@ resource "aws_security_group" "pos_task" {
   lifecycle {
     create_before_destroy = true
   }
-  ingress = []
-  egress  = []
 }
 
 # --- vpc_link -> alb (port 80) ---
