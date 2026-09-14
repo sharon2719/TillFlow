@@ -88,9 +88,17 @@ data "aws_iam_policy_document" "ci_deploy_assume" {
       # actually sent. Both patterns require the literal "@" right after the owner/repo name
       # (not a bare wildcard suffix) so this can't also match an unrelated account like
       # "sharon27190therorg".
+      #
+      # Also confirmed via CloudTrail: GitHub emits the repo name with inconsistent casing
+      # depending on the triggering event - "tillflow" on push-triggered runs,
+      # "TillFlow" on pull_request-triggered ones (same owner/repo IDs both times, so
+      # definitely the same repo - this is a GitHub-side quirk, not two different repos).
+      # StringLike has no case-insensitive form, so both castings are listed explicitly.
       values = [
-        "repo:sharon2719/tillflow:*",     # classic form, no immutable IDs
-        "repo:sharon2719@*/tillflow@*:*", # immutable-ID form
+        "repo:sharon2719/tillflow:*",     # classic form, no immutable IDs, lowercase
+        "repo:sharon2719/TillFlow:*",     # classic form, no immutable IDs, PR casing
+        "repo:sharon2719@*/tillflow@*:*", # immutable-ID form, lowercase
+        "repo:sharon2719@*/TillFlow@*:*", # immutable-ID form, PR casing
       ]
     }
   }
