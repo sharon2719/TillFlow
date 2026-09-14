@@ -244,6 +244,18 @@ data "aws_iam_policy_document" "ci_deploy_infra" {
     actions   = ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:DeleteItem"]
     resources = ["arn:aws:dynamodb:${var.region}:240462142849:table/${var.name_prefix}-tflock"]
   }
+
+  # The tflock table (and the tfstate bucket) are encrypted with this customer-managed key
+  # (infra/bootstrap/main.tf) rather than an AWS-managed default - added during the naming/
+  # tag audit pass. That means every state lock/read now needs Decrypt on it too, which the
+  # two statements above don't cover on their own. ARN is hardcoded the same way the bucket/
+  # table names already are in infra/backend.tf - bootstrap is a separate Terraform stack
+  # with no cross-stack data source wired up.
+  statement {
+    sid       = "TfstateKmsKey"
+    actions   = ["kms:Decrypt", "kms:GenerateDataKey"]
+    resources = ["arn:aws:kms:${var.region}:240462142849:key/0257835a-a3a1-487a-b740-79ea0b801eaf"]
+  }
 }
 
 resource "aws_iam_role_policy" "ci_deploy_infra" {
