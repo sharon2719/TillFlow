@@ -3,14 +3,19 @@
 Multi-tenant POS + M-Pesa (Daraja) payments, on AWS ECS. Solo capstone build — see
 `docs/ownership.md` for why every area still names one DRI even with a group of one.
 
-## Status (2026-09-14)
+## Status (2026-09-15)
 
-Working: `services/pos` health/readiness skeleton (tested, Dockerized), and a validated
-Terraform foundation (`infra/`) — VPC across two AZs, public/private subnets, NAT, plus a
-one-time `infra/bootstrap` stack for the remote-state bucket + lock table. Nothing has been
-`apply`'d to AWS yet (no account/credentials wired in this environment). ECS, RDS,
-ElastiCache, SQS and the pipeline are next. This README updates as each gate lands, not
-written once at the end.
+`infra/bootstrap` is applied for real (state bucket + lock table exist in AWS). The main
+`infra/` stack — VPC, ECS cluster/service/task-def with an ADOT sidecar, ALB, ECR, IAM
+roles, and an API Gateway HTTP API + VPC Link in front of the ALB — is written, formatted,
+validated, and `plan`'d clean (37 resources, 0 destroyed). It has not been `apply`'d yet in
+this environment (infra applies are intentionally gated to a human decision here — see
+`golden-path.tfplan` if present, or just re-run `terraform plan`). `.github/workflows/deploy-pos.yml`
+builds `pos`, pushes it to ECR by commit SHA, registers a new ECS task definition revision,
+updates the service, waits for stability, and smoke-tests the public API Gateway endpoint —
+this is G1's "first pipeline deploy," pending the infra apply to actually run against.
+RDS/ElastiCache/SQS aren't stood up yet since no service needs them until Payments/Commission
+exist. This README updates as each gate lands, not written once at the end.
 
 ## Prerequisites
 
@@ -51,8 +56,8 @@ See the brief's required mono-repo layout, reproduced as-built in
 
 ```
 services/    pos, payments, commission, web, _shared
-infra/       Terraform: bootstrap (state backend) + main stack (VPC done, ECS/RDS/etc next)
-.github/     CI: pos build/test, terraform fmt+validate, Trivy secret/dep/IaC scan
+infra/       Terraform: bootstrap (applied) + main stack (VPC/ECS/ALB/ECR/API GW — plan'd, not applied)
+.github/     CI (checks) + deploy-pos (build/push/deploy/smoke-test pipeline)
 docs/        ownership, architecture, ADRs, SLOs, threat model
 evidence/    per-area runtime proof (empty placeholders for now)
 ```
@@ -60,9 +65,14 @@ evidence/    per-area runtime proof (empty placeholders for now)
 ## Gates
 
 Tracked outside this repo for now; see `docs/ownership.md` and the ADRs for what's decided.
-G0 (decide) is done. G1 (Terraform + golden path) is in progress: network layer validated,
-ECS/RDS/ElastiCache/SQS/pipeline still to come.
+G0 (decide) is done. G1 (Terraform + golden path): network + ECS golden path Terraform is
+written and `plan`'d clean; the deploy pipeline exists; the actual `apply` against AWS and
+the first real pipeline run are the remaining steps.
 
 ## Cost / cleanup
 
-Nothing deployed to AWS yet — no cost, nothing to tear down.
+`infra/bootstrap` is live (S3 + DynamoDB, effectively free at this scale). The main stack
+(VPC, NAT gateway, ALB, ECS Fargate task) has real hourly cost once applied — roughly a NAT
+gateway + ALB + one small Fargate task, on the order of tens of USD/month if left running
+continuously. Tear down with `terraform -chdir=infra destroy` when not actively working on
+it; `infra/bootstrap` can stay up indefinitely (near-zero idle cost).

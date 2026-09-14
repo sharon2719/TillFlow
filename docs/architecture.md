@@ -56,8 +56,12 @@ brief calls out contracts and validation boundaries specifically as owned decisi
 
 ## Status
 
-This is the target shape. As of 2026-09-14, only the POS service skeleton
-(`services/pos`) exists, with `/health` and `/ready` only — no database, no Daraja
-integration, no ADOT wiring yet. Payments, Commission, Web, the shared M-Pesa adapter, and
-all of `infra/` are still to be built. This file will be kept current as each piece lands;
-treat any mismatch between this doc and the repo as a bug in this doc.
+As of 2026-09-15: the request path above (API Gateway -> VPC Link -> ALB -> ECS Fargate,
+app + ADOT sidecar) is written in Terraform, validated, and `plan`'d clean against real AWS
+(37 resources), but not yet `apply`'d in this environment. `services/pos` still only has
+`/health` and `/ready` — no database, no Daraja integration, and the ADOT sidecar boots
+alongside it but pos doesn't emit real OTLP telemetry yet (that's separate OTel SDK work,
+not yet done). Payments, Commission, Web, and RDS/ElastiCache/SQS/EventBridge are still to
+be built — those get added to `infra/` once a service actually needs them, same pattern as
+`_shared`. This file is kept current as each piece lands; treat any mismatch between this
+doc and the repo as a bug in this doc.

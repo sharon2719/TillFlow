@@ -1,0 +1,129 @@
+name: Deploy pos
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "services/pos/**"
+      - "services/_shared/**"
+      - ".github/workflows/deploy-pos.yml"
+  workflow_dispatch: {}
+
+permissions:
+  id-token: write # required for OIDC -> AWS
+  contents: read
+
+env:
+  AWS_REGION: eu-west-1
+  CI_DEPLOY_ROLE_ARN: arn:aws:iam::240462142849:role/devops-g5-ci-deploy
+  ECR_REPOSITORY: devops-g5/pos
+  ECS_CLUSTER: devops-g5
+  ECS_SERVICE: devops-g5-pos
+  TASK_FAMILY: devops-g5-pos
+  CONTAINER_NAME: pos
+  API_NAME: devops-g5-api
+
+jobs:
+  test:
+    name: test before deploying anything
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+      - run: npm ci
+      - run: npm run typecheck --workspace=@tillflow/pos
+      - run: npm run test --workspace=@tillflow/pos
+
+  deploy:
+    name: build, push, deploy, smoke test
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assume the deploy role via OIDC (no long-lived AWS keys)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.CI_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Log in to ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push (tagged by commit SHA — no latest tags)
+        id: build
+        env:
+          REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+        run: |
+          IMAGE="$REGISTRY/${{ env.ECR_REPOSITORY }}:${{ github.sha }}"
+          docker build -f services/pos/Dockerfile -t "$IMAGE" .
+          docker push "$IMAGE"
+          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+
+      # Terraform owns the task definition's *shape* (cpu/memory/roles/sidecar/log config —
+      # see infra/ecs-task-def.tf); this pipeline owns *which image* is actually running.
+      # Fetching the live definition and only swapping the app container's image keeps
+      # those two ownership boundaries honest instead of duplicating the shape in a second
+      # static JSON file that could drift from Terraform's.
+      - name: Register a new task definition revision with the new image
+        id: register
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition "${{ env.TASK_FAMILY }}" \
+            --query 'taskDefinition' > current-task-def.json
+
+          jq --arg IMAGE "${{ steps.build.outputs.image }}" --arg NAME "${{ env.CONTAINER_NAME }}" '
+            .containerDefinitions = [.containerDefinitions[] |
+              if .name == $NAME then .image = $IMAGE else . end]
+            | del(.taskDefinitionArn, .revision, .status, .requiresAttributes,
+                  .compatibilities, .registeredAt, .registeredBy)
+          ' current-task-def.json > new-task-def.json
+
+          NEW_ARN=$(aws ecs register-task-definition \
+            --cli-input-json file://new-task-def.json \
+            --query 'taskDefinition.taskDefinitionArn' --output text)
+          echo "task_def_arn=$NEW_ARN" >> "$GITHUB_OUTPUT"
+
+      - name: Update the service and wait for it to stabilize
+        run: |
+          aws ecs update-service \
+            --cluster "${{ env.ECS_CLUSTER }}" \
+            --service "${{ env.ECS_SERVICE }}" \
+            --task-definition "${{ steps.register.outputs.task_def_arn }}" \
+            --force-new-deployment
+
+          # If the deployment circuit breaker rolls back, this still returns once the
+          # service is stable again (at the rolled-back revision) - the next step catches
+          # that by checking which revision is actually running.
+          aws ecs wait services-stable \
+            --cluster "${{ env.ECS_CLUSTER }}" \
+            --services "${{ env.ECS_SERVICE }}"
+
+      - name: Verify the intended revision is the one actually running (catches a circuit-breaker rollback)
+        run: |
+          RUNNING=$(aws ecs describe-services \
+            --cluster "${{ env.ECS_CLUSTER }}" \
+            --services "${{ env.ECS_SERVICE }}" \
+            --query 'services[0].taskDefinition' --output text)
+          if [ "$RUNNING" != "${{ steps.register.outputs.task_def_arn }}" ]; then
+            echo "::error::Deployment rolled back — running revision is $RUNNING, expected ${{ steps.register.outputs.task_def_arn }}"
+            exit 1
+          fi
+
+      - name: Post-deploy smoke test through the public API Gateway endpoint
+        run: |
+          API_ENDPOINT=$(aws apigatewayv2 get-apis \
+            --query "Items[?Name=='${{ env.API_NAME }}'].ApiEndpoint" --output text)
+          for i in $(seq 1 10); do
+            if curl -sf "$API_ENDPOINT/health" | grep -q '"status":"ok"'; then
+              echo "Smoke test passed against $API_ENDPOINT/health"
+              exit 0
+            fi
+            sleep 6
+          done
+          echo "::error::Smoke test failed — $API_ENDPOINT/health never returned a healthy response"
+          exit 1
