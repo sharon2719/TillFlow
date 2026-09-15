@@ -1,0 +1,24 @@
+# Every service's Dockerfile builds from the repo root (npm workspaces need the root
+# lockfile), so without this, every build sends the whole repo as context - node_modules
+# included. Missing this file is why builds have been silently slow.
+node_modules/
+**/node_modules/
+.git/
+dist/
+**/dist/
+coverage/
+
+# infra/docs/evidence are never needed inside a service image
+infra/
+docs/
+evidence/
+*.tfplan
+*.tfstate*
+.terraform/
+**/.terraform/
+
+.github/
+*.md
+.env
+.env.*
+!.env.example

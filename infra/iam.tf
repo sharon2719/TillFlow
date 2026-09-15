@@ -49,6 +49,25 @@ resource "aws_iam_role_policy_attachment" "pos_task_xray" {
   policy_arn = "arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess"
 }
 
+# The RDS master credential is AWS-managed (manage_master_user_password = true in
+# infra/rds.tf) - it lives in a Secrets Manager secret Terraform never sees the value of.
+# This goes on the EXECUTION role, not the task role: ECS's native `secrets` field on a
+# container definition (see ecs-task-def.tf) is resolved by the execution role at container
+# startup, before the app code (and its task role) ever runs.
+data "aws_iam_policy_document" "pos_exec_db_secret" {
+  statement {
+    sid       = "ReadDbSecret"
+    actions   = ["secretsmanager:GetSecretValue"]
+    resources = [aws_db_instance.main.master_user_secret[0].secret_arn]
+  }
+}
+
+resource "aws_iam_role_policy" "pos_exec_db_secret" {
+  name   = "${var.name_prefix}-pos-exec-db-secret"
+  role   = aws_iam_role.pos_exec.id
+  policy = data.aws_iam_policy_document.pos_exec_db_secret.json
+}
+
 # --- GitHub Actions OIDC deploy role -------------------------------------------------
 #
 # This AWS account is shared across the whole cohort (docs/adr/0002-region.md), and an
@@ -145,6 +164,7 @@ data "aws_iam_policy_document" "ci_deploy_permissions" {
       "ecs:RegisterTaskDefinition",
       "ecs:UpdateService",
       "ecs:ListTasks",
+      "ecs:RunTask", # the one-off migration task in deploy-pos.yml
     ]
     resources = ["*"] # ECS describe/register actions don't support resource-level scoping consistently
   }

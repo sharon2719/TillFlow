@@ -38,7 +38,20 @@ resource "aws_ecs_task_definition" "pos" {
         { containerPort = 3000, protocol = "tcp" }
       ]
       environment = [
-        { name = "PORT", value = "3000" }
+        { name = "PORT", value = "3000" },
+        { name = "DB_HOST", value = aws_db_instance.main.address },
+        { name = "DB_PORT", value = tostring(aws_db_instance.main.port) },
+        { name = "DB_NAME", value = aws_db_instance.main.db_name },
+        { name = "DB_SCHEMA", value = "pos" },
+      ]
+      # Pulled by the execution role (infra/iam.tf: pos_exec_db_secret) from the
+      # AWS-managed RDS credential, injected as plain env vars before the app starts - the
+      # app never calls Secrets Manager itself. Per-service least-privilege DB roles (the
+      # fuller ADR-0003 vision) aren't built yet; this uses the master credential with
+      # schema-level separation only - logged as a gap in docs/production-readiness.md.
+      secrets = [
+        { name = "DB_USER", valueFrom = "${aws_db_instance.main.master_user_secret[0].secret_arn}:username::" },
+        { name = "DB_PASSWORD", valueFrom = "${aws_db_instance.main.master_user_secret[0].secret_arn}:password::" },
       ]
       logConfiguration = {
         logDriver = "awslogs"

@@ -88,6 +88,36 @@ jobs:
             --query 'taskDefinition.taskDefinitionArn' --output text)
           echo "task_def_arn=$NEW_ARN" >> "$GITHUB_OUTPUT"
 
+      - name: Run database migrations (one-off ECS task, same task def revision, migrate command)
+        run: |
+          NETWORK_CONFIG=$(aws ecs describe-services \
+            --cluster "${{ env.ECS_CLUSTER }}" \
+            --services "${{ env.ECS_SERVICE }}" \
+            --query 'services[0].networkConfiguration' --output json)
+
+          TASK_ARN=$(aws ecs run-task \
+            --cluster "${{ env.ECS_CLUSTER }}" \
+            --task-definition "${{ steps.register.outputs.task_def_arn }}" \
+            --launch-type FARGATE \
+            --network-configuration "$NETWORK_CONFIG" \
+            --overrides '{"containerOverrides":[{"name":"${{ env.CONTAINER_NAME }}","command":["node","services/pos/dist/migrate.js"]}]}' \
+            --query 'tasks[0].taskArn' --output text)
+
+          echo "Migration task: $TASK_ARN"
+          aws ecs wait tasks-stopped --cluster "${{ env.ECS_CLUSTER }}" --tasks "$TASK_ARN"
+
+          EXIT_CODE=$(aws ecs describe-tasks \
+            --cluster "${{ env.ECS_CLUSTER }}" --tasks "$TASK_ARN" \
+            --query "tasks[0].containers[?name=='${{ env.CONTAINER_NAME }}'].exitCode | [0]" --output text)
+
+          if [ "$EXIT_CODE" != "0" ]; then
+            echo "::error::Migration task exited with code $EXIT_CODE - not deploying this revision"
+            aws ecs describe-tasks --cluster "${{ env.ECS_CLUSTER }}" --tasks "$TASK_ARN" \
+              --query "tasks[0].containers[?name=='${{ env.CONTAINER_NAME }}'].reason | [0]" --output text
+            exit 1
+          fi
+          echo "Migration task completed successfully."
+
       - name: Update the service and wait for it to stabilize
         run: |
           aws ecs update-service \

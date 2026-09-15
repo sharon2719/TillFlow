@@ -25,6 +25,8 @@ ENV NODE_ENV=production
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=build /app/services/pos/dist ./services/pos/dist
 COPY services/pos/package.json services/pos/package.json
+# migrate.js resolves this directory relative to itself at runtime (services/pos/src/migrate.ts)
+COPY services/pos/migrations ./services/pos/migrations
 
 RUN addgroup -S app && adduser -S app -G app
 USER app
