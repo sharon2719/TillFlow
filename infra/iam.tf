@@ -205,6 +205,7 @@ data "aws_iam_policy_document" "ci_deploy_infra" {
       "ecr:*",
       "logs:*",
       "apigateway:*",
+      "rds:*", # added for infra/rds.tf (G2) - didn't exist when this statement was first written
     ]
     resources = ["*"]
     condition {
