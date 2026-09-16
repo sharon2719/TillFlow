@@ -61,6 +61,10 @@ resource "aws_elasticache_replication_group" "main" {
 resource "aws_sqs_queue" "commission_close_dlq" {
   name                      = "${var.name_prefix}-commission-close-dlq"
   message_retention_seconds = 1209600 # 14 days - max, so a failed run isn't lost before anyone looks
+  # SSE-SQS (Amazon-owned key): fully managed, zero extra IAM/key-policy grants needed for
+  # any producer/consumer - unlike a customer-managed KMS key (see monitoring.tf's SNS
+  # topic for that tradeoff), there's no key policy to get subtly wrong here.
+  sqs_managed_sse_enabled = true
 
   tags = {
     service = "commission"
@@ -71,6 +75,7 @@ resource "aws_sqs_queue" "commission_close" {
   name                       = "${var.name_prefix}-commission-close"
   message_retention_seconds  = 345600 # 4 days
   visibility_timeout_seconds = 60
+  sqs_managed_sse_enabled    = true
 
   redrive_policy = jsonencode({
     deadLetterTargetArn = aws_sqs_queue.commission_close_dlq.arn
