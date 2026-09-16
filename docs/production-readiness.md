@@ -99,6 +99,38 @@ Owner: sharon2719. Revisit: if this repo ever moves to a paid GitHub plan, add a
 reviewer to the `infra-apply` environment and switch the workflow back to triggering on
 push - both are small, contained changes.
 
+## Observability (see also docs/slo-error-budgets.md, docs/runbook.md)
+
+**Alarms are built on ALB/RDS metrics, not the SLO table's actual numerators.**
+`infra/monitoring.tf`'s alarms answer "is the API up and responding reasonably fast" using
+metrics CloudWatch already collects for free (5xx count, target response time, healthy host
+count). The SLO table's real numerators — e.g. "valid sale writes accepted exactly once",
+"eligible payouts reaching a terminal state by 06:30 EAT" — need each service to emit its
+own business-level success/failure/latency metrics (via the ADOT sidecar already in every
+task, which currently only carries traces to X-Ray, not custom metrics). Until that's built,
+burn-rate against the written SLO targets isn't actually measurable, only approximated.
+Owner: sharon2719. Revisit: once G3's alerting is validated against real traffic, add
+OTel metric instrumentation per service for the specific SLI numerators.
+
+**The alerts SNS topic uses the AWS-managed key, not a customer-managed CMK**
+(`infra/monitoring.tf`, `trivy:ignore:AWS-0136`). A CMK needs its own key policy granting
+CloudWatch/SNS permission to use it for publishing - get that policy subtly wrong and the
+alarm still fires and shows ALARM in the console, but the notification email silently never
+decrypts and sends, which is a worse failure mode than the compliance gap it would close.
+The topic only ever carries alarm names/descriptions, never customer data. Owner:
+sharon2719. Revisit: before G5, or if this topic is ever used to carry anything more
+sensitive than alarm text.
+
+**No slow-query log or RDS Performance Insights.** `rds-cpu` firing tells you the shared
+instance is under load, not which service or query caused it. Owner: sharon2719. Revisit:
+enable Performance Insights (free tier covers 7 days retention) next time the RDS resource
+is touched for another reason, to avoid a standalone apply just for this.
+
+**CloudWatch Container Insights isn't enabled**, so there's no native
+"runningCount < desiredCount" ECS alarm — `<service>-unhealthy` (ALB-level) is the closest
+proxy today. Owner: sharon2719. Revisit: before G4, since failure drills will want a faster,
+more direct signal than "the ALB stopped seeing a healthy target."
+
 ## Registry-wide scanning (see also docs/adr/0005-shared-account-boundaries.md)
 
 ECR enhanced (Inspector) scanning is a registry-wide singleton in a shared cohort account,
