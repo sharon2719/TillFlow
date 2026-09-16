@@ -211,7 +211,7 @@ resource "aws_vpc_security_group_ingress_rule" "commission_task_from_alb" {
 # standing up a second internal load balancer or Cloud Map/Service Connect for one caller.
 resource "aws_vpc_security_group_egress_rule" "commission_task_to_alb" {
   security_group_id            = aws_security_group.commission_task.id
-  description                  = "to the ALB (calls payments' /api/v1/payments/b2c)"
+  description                  = "to the ALB (calls the payments /api/v1/payments/b2c endpoint)"
   referenced_security_group_id = aws_security_group.alb.id
   from_port                    = 80
   to_port                      = 80
