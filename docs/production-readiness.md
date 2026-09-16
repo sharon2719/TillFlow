@@ -101,16 +101,15 @@ push - both are small, contained changes.
 
 ## Observability (see also docs/slo-error-budgets.md, docs/runbook.md, docs/recovery-drills.md)
 
-**`desired_count = 1` everywhere means every deploy — and any task failure — has a real,
-measured gap with no spare capacity.** `docs/recovery-drills.md`'s drill 1 found no alarm
-fired during a real ~30-40s outage; the missing piece (no alarm on `HTTPCode_ELB_5XX_Count`,
-the ALB's own 5xx when it has zero healthy targets, as opposed to `HTTPCode_Target_5XX_Count`
-which a target actually returns) is now fixed — `aws_cloudwatch_metric_alarm.alb_elb_5xx` in
-`infra/monitoring.tf`. What's still open: the unhealthy-host alarm's 2-minute window is still
-longer than a fast self-healing event, so this class of outage still won't page anyone even
-with the new alarm in place, and `desired_count = 2` (removing the gap entirely, at roughly
-double the Fargate cost per service) hasn't been decided. Owner: sharon2719. Revisit: decide
-`desired_count` for services where the 99.9% SLO budget is tight.
+**`desired_count = 1` everywhere, kept deliberately.** `docs/recovery-drills.md`'s drill 1
+measured the real cost of this: a ~30-40s gap with no alarm on every task replacement,
+including every routine deploy, not just a failure. The missing alarm for that gap is now
+fixed (`aws_cloudwatch_metric_alarm.alb_elb_5xx`), but the gap itself — and the unhealthy-host
+alarm's 2-minute window staying longer than a fast self-healing event — remain. Decided to
+keep `desired_count = 1` rather than pay roughly double the Fargate cost per service to close
+a ~30-40s window, given this is a capstone with no real user traffic at stake. Owner:
+sharon2719. Revisit: before this ever carries real production traffic, or if the pos p95
+SLO miss in `docs/load-tests.md` is confirmed to be capacity-related rather than a one-off.
 
 **`pos` missed its own p95 latency SLO under concurrent load, cause not yet confirmed.**
 `docs/load-tests.md`'s run 1: 462.9ms p95 against a 400ms target, while CPU stayed under
