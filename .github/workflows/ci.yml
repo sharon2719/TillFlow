@@ -86,6 +86,44 @@ jobs:
           path: sbom-payments.cdx.json
           retention-days: 90
 
+  commission:
+    name: commission service — typecheck, test, build image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck --workspace=@tillflow/commission
+
+      - name: Test
+        run: npm run test --workspace=@tillflow/commission
+
+      - name: Build image
+        run: docker build -f services/commission/Dockerfile -t tillflow-commission:${{ github.sha }} .
+
+      - name: Generate SBOM (CycloneDX)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: image
+          image-ref: tillflow-commission:${{ github.sha }}
+          format: cyclonedx
+          output: sbom-commission.cdx.json
+
+      - name: Upload SBOM as a build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-commission-${{ github.sha }}
+          path: sbom-commission.cdx.json
+          retention-days: 90
+
   terraform:
     name: infra — fmt + validate (both stacks; bootstrap stays hand-applied, see its own header)
     runs-on: ubuntu-latest
