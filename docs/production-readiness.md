@@ -99,7 +99,19 @@ Owner: sharon2719. Revisit: if this repo ever moves to a paid GitHub plan, add a
 reviewer to the `infra-apply` environment and switch the workflow back to triggering on
 push - both are small, contained changes.
 
-## Observability (see also docs/slo-error-budgets.md, docs/runbook.md)
+## Observability (see also docs/slo-error-budgets.md, docs/runbook.md, docs/recovery-drills.md)
+
+**No alarm on ELB-level 5xx, only per-target-group 5xx.** Confirmed by
+`docs/recovery-drills.md`'s drill 1: when a service has zero healthy targets, the ALB
+itself returns a 503 (`HTTPCode_ELB_5XX_Count`), which is a different metric from a target
+actually returning a 5xx (`HTTPCode_Target_5XX_Count` — what `infra/monitoring.tf` alarms
+on today). A "no healthy target" event that resolves inside the unhealthy-host alarm's
+2-minute window is currently invisible to every alarm in the stack. Owner: sharon2719.
+Revisit: add an `HTTPCode_ELB_5XX_Count` alarm per load balancer; decide whether
+`desired_count = 2` is worth it for services where the 99.9% SLO budget is tight, given
+every deploy (not just a failure) causes this same brief gap today.
+
+
 
 **Alarms are built on ALB/RDS metrics, not the SLO table's actual numerators.**
 `infra/monitoring.tf`'s alarms answer "is the API up and responding reasonably fast" using

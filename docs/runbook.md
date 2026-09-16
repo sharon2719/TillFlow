@@ -7,6 +7,11 @@ Dashboard: `terraform output dashboard_url` (or AWS Console → CloudWatch → D
 `devops-g5-overview`). Alarms notify the `devops-g5-alerts` SNS topic (email subscription -
 see `infra/monitoring.tf`).
 
+See `docs/recovery-drills.md` for what's actually been tested against this stack, including
+a confirmed blind spot: a task replacement fast enough to self-heal in under ~2 minutes
+(which is every routine deploy, and was also true of a real killed task) currently pages
+no one at all.
+
 ## What these alarms are (and aren't)
 
 They're built on ALB and RDS metrics - real signals CloudWatch already collects, not the
