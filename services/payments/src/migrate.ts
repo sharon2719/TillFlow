@@ -1,14 +1,7 @@
 #!/usr/bin/env node
-/**
- * Minimal migration runner: applies every .sql file in migrations/ in filename order that
- * isn't already recorded in pos_schema_migrations, each inside its own transaction. No
- * rollback-on-failure across files, no down-migrations - deliberately simple for a
- * single-table-owner-per-service setup. Reconsider if this ever needs to coordinate
- * migrations across more than one service sharing this runner.
- *
- * Usage: node dist/migrate.js   (or `npm run migrate` in dev via tsx)
- * Reads the same DB_* env vars as the app itself.
- */
+/** Same minimal migration runner as services/pos/src/migrate.ts - see that file's comment
+ * for the reasoning. Kept per-service rather than shared, since the runner itself is small
+ * and each service's migrations are independent anyway. */
 import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -17,21 +10,20 @@ import { createPool } from "./db.js";
 import { logger } from "./logger.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-// dist/migrate.js -> ../migrations ; src/migrate.ts (via tsx) -> ../migrations too
 const MIGRATIONS_DIR = join(__dirname, "..", "migrations");
 
 async function main() {
   const pool = createPool();
 
   await pool.query(`
-    CREATE TABLE IF NOT EXISTS pos_schema_migrations (
+    CREATE TABLE IF NOT EXISTS payments_schema_migrations (
       filename   TEXT PRIMARY KEY,
       applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
     )
   `);
 
   const applied = new Set(
-    (await pool.query<{ filename: string }>("SELECT filename FROM pos_schema_migrations")).rows.map(
+    (await pool.query<{ filename: string }>("SELECT filename FROM payments_schema_migrations")).rows.map(
       (r) => r.filename,
     ),
   );
@@ -51,7 +43,7 @@ async function main() {
     try {
       await client.query("BEGIN");
       await client.query(sql);
-      await client.query("INSERT INTO pos_schema_migrations (filename) VALUES ($1)", [file]);
+      await client.query("INSERT INTO payments_schema_migrations (filename) VALUES ($1)", [file]);
       await client.query("COMMIT");
       logger.info({ file }, "migration applied");
     } catch (err) {
