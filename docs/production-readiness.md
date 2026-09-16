@@ -111,7 +111,13 @@ Revisit: add an `HTTPCode_ELB_5XX_Count` alarm per load balancer; decide whether
 `desired_count = 2` is worth it for services where the 99.9% SLO budget is tight, given
 every deploy (not just a failure) causes this same brief gap today.
 
-
+**`pos` missed its own p95 latency SLO under concurrent load, cause not yet confirmed.**
+`docs/load-tests.md`'s run 1: 462.9ms p95 against a 400ms target, while CPU stayed under
+5%. Working hypothesis is event-loop contention with `pos`'s own DB-writing endpoints
+(single Fargate task, `desired_count = 1`), not the health check itself doing more work -
+same underlying capacity gap the recovery drill above found from the task-kill angle, now
+a second independent data point. Owner: sharon2719. Revisit: profile with X-Ray span
+timing to confirm the cause, then re-run the load test after any capacity change.
 
 **Alarms are built on ALB/RDS metrics, not the SLO table's actual numerators.**
 `infra/monitoring.tf`'s alarms answer "is the API up and responding reasonably fast" using

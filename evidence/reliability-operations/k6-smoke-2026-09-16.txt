@@ -1,0 +1,281 @@
+
+         /\      Grafana   /‾‾/  
+    /\  /  \     |\  __   /  /   
+   /  \/    \    | |/ /  /   ‾‾\ 
+  /          \   |   (  |  (‾)  |
+ / __________ \  |_|\_\  \_____/ 
+
+
+     execution: local
+        script: load-tests/k6-smoke.js
+        output: -
+
+     scenarios: (100.00%) 2 scenarios, 13 max VUs, 2m5s max duration (incl. graceful stop):
+              * health_load: Up to 10 looping VUs for 50s over 3 stages (gracefulRampDown: 30s, exec: healthChecks, gracefulStop: 30s)
+              * business_flow: 15 iterations shared among 3 VUs (maxDuration: 1m30s, exec: businessFlow, startTime: 5s, gracefulStop: 30s)
+
+
+running (0m01.0s), 00/13 VUs, 0 complete and 0 interrupted iterations
+health_load     [   2% ] 00/10 VUs  01.0s/50.0s
+business_flow • [   0% ] waiting    4.0s
+
+running (0m02.0s), 01/13 VUs, 0 complete and 0 interrupted iterations
+health_load     [   4% ] 01/10 VUs  02.0s/50.0s
+business_flow • [   0% ] waiting    3.0s
+
+running (0m03.0s), 02/13 VUs, 0 complete and 0 interrupted iterations
+health_load     [   6% ] 02/10 VUs  03.0s/50.0s
+business_flow • [   0% ] waiting    2.0s
+
+running (0m04.0s), 03/13 VUs, 1 complete and 0 interrupted iterations
+health_load     [   8% ] 03/10 VUs  04.0s/50.0s
+business_flow • [   0% ] waiting    1.0s
+
+running (0m05.0s), 04/13 VUs, 2 complete and 0 interrupted iterations
+health_load     [  10% ] 04/10 VUs  05.0s/50.0s
+business_flow • [   0% ] waiting    0.0s
+
+running (0m06.0s), 08/13 VUs, 4 complete and 0 interrupted iterations
+health_load     [  12% ] 05/10 VUs  06.0s/50.0s   
+business_flow   [   0% ] 3 VUs      0m01.0s/1m30s  00/15 shared iters
+
+running (0m07.0s), 09/13 VUs, 6 complete and 0 interrupted iterations
+health_load     [  14% ] 06/10 VUs  07.0s/50.0s   
+business_flow   [   0% ] 3 VUs      0m02.0s/1m30s  00/15 shared iters
+
+running (0m08.0s), 10/13 VUs, 12 complete and 0 interrupted iterations
+health_load     [  16% ] 07/10 VUs  08.0s/50.0s   
+business_flow   [  20% ] 3 VUs      0m03.0s/1m30s  03/15 shared iters
+
+running (0m09.0s), 11/13 VUs, 15 complete and 0 interrupted iterations
+health_load     [  18% ] 08/10 VUs  09.0s/50.0s   
+business_flow   [  20% ] 3 VUs      0m04.0s/1m30s  03/15 shared iters
+
+running (0m10.0s), 12/13 VUs, 22 complete and 0 interrupted iterations
+health_load     [  20% ] 09/10 VUs  10.0s/50.0s   
+business_flow   [  40% ] 3 VUs      0m05.0s/1m30s  06/15 shared iters
+
+running (0m11.0s), 13/13 VUs, 29 complete and 0 interrupted iterations
+health_load     [  22% ] 10/10 VUs  11.0s/50.0s   
+business_flow   [  60% ] 3 VUs      0m06.0s/1m30s  09/15 shared iters
+
+running (0m12.0s), 13/13 VUs, 38 complete and 0 interrupted iterations
+health_load     [  24% ] 10/10 VUs  12.0s/50.0s   
+business_flow   [  80% ] 3 VUs      0m07.0s/1m30s  12/15 shared iters
+
+running (0m13.0s), 13/13 VUs, 44 complete and 0 interrupted iterations
+health_load     [  26% ] 10/10 VUs  13.0s/50.0s   
+business_flow   [  80% ] 3 VUs      0m08.0s/1m30s  12/15 shared iters
+
+running (0m14.0s), 10/13 VUs, 52 complete and 0 interrupted iterations
+health_load     [  28% ] 10/10 VUs  14.0s/50.0s   
+business_flow ✓ [ 100% ] 3 VUs      0m08.3s/1m30s  15/15 shared iters
+
+running (0m15.0s), 10/13 VUs, 55 complete and 0 interrupted iterations
+health_load     [  30% ] 10/10 VUs  15.0s/50.0s   
+business_flow ✓ [ 100% ] 3 VUs      0m08.3s/1m30s  15/15 shared iters
+
+running (0m16.0s), 10/13 VUs, 64 complete and 0 interrupted iterations
+health_load     [  32% ] 10/10 VUs  16.0s/50.0s   
+business_flow ✓ [ 100% ] 3 VUs      0m08.3s/1m30s  15/15 shared iters
+
+running (0m17.0s), 10/13 VUs, 65 complete and 0 interrupted iterations
+health_load     [  34% ] 10/10 VUs  17.0s/50.0s   
+business_flow ✓ [ 100% ] 3 VUs      0m08.3s/1m30s  15/15 shared iters
+
+running (0m18.0s), 10/13 VUs, 74 complete and 0 interrupted iterations
+health_load     [  36% ] 10/10 VUs  18.0s/50.0s   
+business_flow ✓ [ 100% ] 3 VUs      0m08.3s/1m30s  15/15 shared iters
+
+running (0m19.0s), 10/13 VUs, 76 complete and 0 interrupted iterations
+health_load     [  38% ] 10/10 VUs  19.0s/50.0s   
+business_flow ✓ [ 100% ] 3 VUs      0m08.3s/1m30s  15/15 shared iters
+
+running (0m20.0s), 10/13 VUs, 85 complete and 0 interrupted iterations
+health_load     [  40% ] 10/10 VUs  20.0s/50.0s   
+business_flow ✓ [ 100% ] 3 VUs      0m08.3s/1m30s  15/15 shared iters
+
+running (0m21.0s), 10/13 VUs, 90 complete and 0 interrupted iterations
+health_load     [  42% ] 10/10 VUs  21.0s/50.0s   
+business_flow ✓ [ 100% ] 3 VUs      0m08.3s/1m30s  15/15 shared iters
+
+running (0m22.0s), 10/13 VUs, 95 complete and 0 interrupted iterations
+health_load     [  44% ] 10/10 VUs  22.0s/50.0s   
+business_flow ✓ [ 100% ] 3 VUs      0m08.3s/1m30s  15/15 shared iters
+
+running (0m23.0s), 10/13 VUs, 100 complete and 0 interrupted iterations
+health_load     [  46% ] 10/10 VUs  23.0s/50.0s   
+business_flow ✓ [ 100% ] 3 VUs      0m08.3s/1m30s  15/15 shared iters
+
+running (0m24.0s), 10/13 VUs, 105 complete and 0 interrupted iterations
+health_load     [  48% ] 10/10 VUs  24.0s/50.0s   
+business_flow ✓ [ 100% ] 3 VUs      0m08.3s/1m30s  15/15 shared iters
+
+running (0m25.0s), 10/13 VUs, 111 complete and 0 interrupted iterations
+health_load     [  50% ] 10/10 VUs  25.0s/50.0s   
+business_flow ✓ [ 100% ] 3 VUs      0m08.3s/1m30s  15/15 shared iters
+
+running (0m26.0s), 10/13 VUs, 115 complete and 0 interrupted iterations
+health_load     [  52% ] 10/10 VUs  26.0s/50.0s   
+business_flow ✓ [ 100% ] 3 VUs      0m08.3s/1m30s  15/15 shared iters
+
+running (0m27.0s), 10/13 VUs, 122 complete and 0 interrupted iterations
+health_load     [  54% ] 10/10 VUs  27.0s/50.0s   
+business_flow ✓ [ 100% ] 3 VUs      0m08.3s/1m30s  15/15 shared iters
+
+running (0m28.0s), 10/13 VUs, 125 complete and 0 interrupted iterations
+health_load     [  56% ] 10/10 VUs  28.0s/50.0s   
+business_flow ✓ [ 100% ] 3 VUs      0m08.3s/1m30s  15/15 shared iters
+
+running (0m29.0s), 10/13 VUs, 133 complete and 0 interrupted iterations
+health_load     [  58% ] 10/10 VUs  29.0s/50.0s   
+business_flow ✓ [ 100% ] 3 VUs      0m08.3s/1m30s  15/15 shared iters
+
+running (0m30.0s), 10/13 VUs, 135 complete and 0 interrupted iterations
+health_load     [  60% ] 10/10 VUs  30.0s/50.0s   
+business_flow ✓ [ 100% ] 3 VUs      0m08.3s/1m30s  15/15 shared iters
+
+running (0m31.0s), 10/13 VUs, 143 complete and 0 interrupted iterations
+health_load     [  62% ] 10/10 VUs  31.0s/50.0s   
+business_flow ✓ [ 100% ] 3 VUs      0m08.3s/1m30s  15/15 shared iters
+
+running (0m32.0s), 10/13 VUs, 145 complete and 0 interrupted iterations
+health_load     [  64% ] 10/10 VUs  32.0s/50.0s   
+business_flow ✓ [ 100% ] 3 VUs      0m08.3s/1m30s  15/15 shared iters
+
+running (0m33.0s), 10/13 VUs, 154 complete and 0 interrupted iterations
+health_load     [  66% ] 10/10 VUs  33.0s/50.0s   
+business_flow ✓ [ 100% ] 3 VUs      0m08.3s/1m30s  15/15 shared iters
+
+running (0m34.0s), 10/13 VUs, 155 complete and 0 interrupted iterations
+health_load     [  68% ] 10/10 VUs  34.0s/50.0s   
+business_flow ✓ [ 100% ] 3 VUs      0m08.3s/1m30s  15/15 shared iters
+
+running (0m35.0s), 10/13 VUs, 164 complete and 0 interrupted iterations
+health_load     [  70% ] 10/10 VUs  35.0s/50.0s   
+business_flow ✓ [ 100% ] 3 VUs      0m08.3s/1m30s  15/15 shared iters
+
+running (0m36.0s), 10/13 VUs, 166 complete and 0 interrupted iterations
+health_load     [  72% ] 10/10 VUs  36.0s/50.0s   
+business_flow ✓ [ 100% ] 3 VUs      0m08.3s/1m30s  15/15 shared iters
+
+running (0m37.0s), 10/13 VUs, 174 complete and 0 interrupted iterations
+health_load     [  74% ] 10/10 VUs  37.0s/50.0s   
+business_flow ✓ [ 100% ] 3 VUs      0m08.3s/1m30s  15/15 shared iters
+
+running (0m38.0s), 10/13 VUs, 176 complete and 0 interrupted iterations
+health_load     [  76% ] 10/10 VUs  38.0s/50.0s   
+business_flow ✓ [ 100% ] 3 VUs      0m08.3s/1m30s  15/15 shared iters
+
+running (0m39.0s), 10/13 VUs, 185 complete and 0 interrupted iterations
+health_load     [  78% ] 10/10 VUs  39.0s/50.0s   
+business_flow ✓ [ 100% ] 3 VUs      0m08.3s/1m30s  15/15 shared iters
+
+running (0m40.0s), 10/13 VUs, 186 complete and 0 interrupted iterations
+health_load     [  80% ] 10/10 VUs  40.0s/50.0s   
+business_flow ✓ [ 100% ] 3 VUs      0m08.3s/1m30s  15/15 shared iters
+
+running (0m41.0s), 10/13 VUs, 194 complete and 0 interrupted iterations
+health_load     [  82% ] 10/10 VUs  41.0s/50.0s   
+business_flow ✓ [ 100% ] 3 VUs      0m08.3s/1m30s  15/15 shared iters
+
+running (0m42.0s), 09/13 VUs, 196 complete and 0 interrupted iterations
+health_load     [  84% ] 09/10 VUs  42.0s/50.0s   
+business_flow ✓ [ 100% ] 3 VUs      0m08.3s/1m30s  15/15 shared iters
+
+running (0m43.0s), 08/13 VUs, 200 complete and 0 interrupted iterations
+health_load     [  86% ] 08/10 VUs  43.0s/50.0s   
+business_flow ✓ [ 100% ] 3 VUs      0m08.3s/1m30s  15/15 shared iters
+
+running (0m44.0s), 07/13 VUs, 205 complete and 0 interrupted iterations
+health_load     [  88% ] 07/10 VUs  44.0s/50.0s   
+business_flow ✓ [ 100% ] 3 VUs      0m08.3s/1m30s  15/15 shared iters
+
+running (0m45.0s), 07/13 VUs, 205 complete and 0 interrupted iterations
+health_load     [  90% ] 07/10 VUs  45.0s/50.0s   
+business_flow ✓ [ 100% ] 3 VUs      0m08.3s/1m30s  15/15 shared iters
+
+running (0m46.0s), 05/13 VUs, 212 complete and 0 interrupted iterations
+health_load     [  92% ] 05/10 VUs  46.0s/50.0s   
+business_flow ✓ [ 100% ] 3 VUs      0m08.3s/1m30s  15/15 shared iters
+
+running (0m47.0s), 05/13 VUs, 212 complete and 0 interrupted iterations
+health_load     [  94% ] 05/10 VUs  47.0s/50.0s   
+business_flow ✓ [ 100% ] 3 VUs      0m08.3s/1m30s  15/15 shared iters
+
+running (0m48.0s), 05/13 VUs, 212 complete and 0 interrupted iterations
+health_load     [  96% ] 05/10 VUs  48.0s/50.0s   
+business_flow ✓ [ 100% ] 3 VUs      0m08.3s/1m30s  15/15 shared iters
+
+running (0m49.0s), 03/13 VUs, 215 complete and 0 interrupted iterations
+health_load     [  98% ] 03/10 VUs  49.0s/50.0s   
+business_flow ✓ [ 100% ] 3 VUs      0m08.3s/1m30s  15/15 shared iters
+
+running (0m50.0s), 01/13 VUs, 217 complete and 0 interrupted iterations
+health_load     [ 100% ] 01/10 VUs  50.0s/50.0s   
+business_flow ✓ [ 100% ] 3 VUs      0m08.3s/1m30s  15/15 shared iters
+
+running (0m51.0s), 01/13 VUs, 217 complete and 0 interrupted iterations
+health_load   ↓ [ 100% ] 01/10 VUs  50s           
+business_flow ✓ [ 100% ] 3 VUs      0m08.3s/1m30s  15/15 shared iters
+
+
+  █ THRESHOLDS 
+
+    business_flow_errors
+    ✓ 'rate<0.01' rate=0.00%
+
+    pos_health_latency
+    ✗ 'p(95)<400' p(95)=462.9ms
+
+    web_health_latency
+    ✓ 'p(95)<500' p(95)=345.42ms
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 902     17.59776/s
+    checks_succeeded...: 100.00% 902 out of 902
+    checks_failed......: 0.00%   0 out of 902
+
+    ✓ pos /health is 200
+    ✓ web /app/health is 200
+    ✓ payments health is 200
+    ✓ commission health is 200
+    ✓ create tenant 201
+    ✓ create till 201
+    ✓ create sale 201
+    ✓ STK push 201
+    ✓ transaction query 200
+    ✓ commission close 201
+
+    CUSTOM
+    business_flow_errors...........: 0.00%  0 out of 15
+    commission_health_latency......: avg=236.47ms min=200.67ms med=215.5ms  max=632.79ms p(90)=294.75ms p(95)=314.39ms
+    payments_health_latency........: avg=244.51ms min=202.15ms med=214.97ms max=1.11s    p(90)=280.11ms p(95)=371.85ms
+    pos_health_latency.............: avg=273.04ms min=200.83ms med=212.19ms max=1.83s    p(90)=293.5ms  p(95)=462.9ms 
+    web_health_latency.............: avg=244.23ms min=200.23ms med=218.27ms max=689.75ms p(90)=311.15ms p(95)=345.42ms
+
+    HTTP
+    http_req_duration..............: avg=250.33ms min=200.23ms med=216.68ms max=1.83s    p(90)=294.82ms p(95)=351.82ms
+      { expected_response:true }...: avg=250.33ms min=200.23ms med=216.68ms max=1.83s    p(90)=294.82ms p(95)=351.82ms
+    http_req_failed................: 0.00%  0 out of 902
+    http_reqs......................: 902    17.59776/s
+
+    EXECUTION
+    iteration_duration.............: avg=1.99s    min=1.28s    med=1.9s     max=3.76s    p(90)=2.44s    p(95)=2.67s   
+    iterations.....................: 218    4.253117/s
+    vus............................: 1      min=0        max=13
+    vus_max........................: 13     min=13       max=13
+
+    NETWORK
+    data_received..................: 279 kB 5.4 kB/s
+    data_sent......................: 72 kB  1.4 kB/s
+
+
+
+
+running (0m51.3s), 00/13 VUs, 218 complete and 0 interrupted iterations
+health_load   ✓ [ 100% ] 00/10 VUs  50s           
+business_flow ✓ [ 100% ] 3 VUs      0m08.3s/1m30s  15/15 shared iters
+time="2026-09-16T15:58:04+03:00" level=error msg="thresholds on metrics 'pos_health_latency' have been crossed"
