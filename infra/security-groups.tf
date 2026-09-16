@@ -541,3 +541,88 @@ resource "aws_vpc_security_group_egress_rule" "commission_task_to_rds" {
     service = "commission"
   }
 }
+
+# --- grafana_task: no RDS access (it reads CloudWatch/X-Ray via IAM, not the database
+# directly), no egress to the ALB (it's a dashboard consumer, never calls the other
+# services' APIs). ---
+
+resource "aws_security_group" "grafana_task" {
+  name_prefix = "${var.name_prefix}-grafana-task-"
+  description = "grafana ECS task - ingress only from the ALB"
+  vpc_id      = aws_vpc.main.id
+
+  tags = {
+    Name    = "${var.name_prefix}-grafana-task-sg"
+    service = "grafana"
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_vpc_security_group_egress_rule" "alb_to_grafana_task" {
+  security_group_id            = aws_security_group.alb.id
+  description                  = "to the grafana ECS task"
+  referenced_security_group_id = aws_security_group.grafana_task.id
+  from_port                    = 3004
+  to_port                      = 3004
+  ip_protocol                  = "tcp"
+
+  tags = {
+    service = "grafana"
+  }
+}
+
+resource "aws_vpc_security_group_ingress_rule" "grafana_task_from_alb" {
+  security_group_id            = aws_security_group.grafana_task.id
+  description                  = "from the ALB"
+  referenced_security_group_id = aws_security_group.alb.id
+  from_port                    = 3004
+  to_port                      = 3004
+  ip_protocol                  = "tcp"
+
+  tags = {
+    service = "grafana"
+  }
+}
+
+resource "aws_vpc_security_group_egress_rule" "grafana_task_dns_tcp" {
+  security_group_id = aws_security_group.grafana_task.id
+  description       = "DNS (VPC resolver only)"
+  cidr_ipv4         = var.vpc_cidr
+  from_port         = 53
+  to_port           = 53
+  ip_protocol       = "tcp"
+
+  tags = {
+    service = "grafana"
+  }
+}
+
+resource "aws_vpc_security_group_egress_rule" "grafana_task_dns_udp" {
+  security_group_id = aws_security_group.grafana_task.id
+  description       = "DNS (VPC resolver only)"
+  cidr_ipv4         = var.vpc_cidr
+  from_port         = 53
+  to_port           = 53
+  ip_protocol       = "udp"
+
+  tags = {
+    service = "grafana"
+  }
+}
+
+# trivy:ignore:AWS-0104 -- accepted risk, owner sharon2719, revisit before G5 or when VPC endpoints are added; see docs/production-readiness.md
+resource "aws_vpc_security_group_egress_rule" "grafana_task_https" {
+  security_group_id = aws_security_group.grafana_task.id
+  description       = "HTTPS to AWS APIs (ECR/CloudWatch/X-Ray/STS/Secrets Manager) via NAT - no VPC endpoints yet, see docs/production-readiness.md"
+  cidr_ipv4         = "0.0.0.0/0"
+  from_port         = 443
+  to_port           = 443
+  ip_protocol       = "tcp"
+
+  tags = {
+    service = "grafana"
+  }
+}

@@ -6,6 +6,19 @@ owner and a revisit trigger, per the brief's requirement to log accepted risk ra
 silently ignore a scan finding. "Fixed later" items belong in `docs/scar-log.md` instead —
 this file is for things being knowingly left as-is right now.
 
+## Async infrastructure (see also infra/async.tf)
+
+**ElastiCache, the SQS commission-close queue+DLQ, and its EventBridge Scheduler are
+provisioned with no application consumer yet.** `commission` still runs purely as an
+HTTP-invoked API (`POST /api/v1/commission/close`), not a queue worker - the daily
+schedule fires and drops a message on `devops-g5-commission-close`, but nothing reads it,
+and nothing in any service connects to Redis. These were provisioned now because the
+brief's G1 checklist calls for them by name as platform deliverables, ahead of the G2 work
+that will actually consume them. Owner: sharon2719. Revisit: before G3's "show traces
+across... the scheduled commission run" - that requires an actual consumer (e.g. an ECS
+scheduled task or a small worker polling the queue) that calls commission's existing close
+logic, replacing today's owner-triggered HTTP call.
+
 ## Networking
 
 **Single NAT gateway, not one per AZ** (`infra/network.tf`)

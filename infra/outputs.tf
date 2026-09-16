@@ -46,6 +46,18 @@ output "web_ecs_service_name" {
   value = aws_ecs_service.web.name
 }
 
+output "grafana_ecr_repository_url" {
+  value = aws_ecr_repository.grafana.repository_url
+}
+
+output "grafana_ecs_service_name" {
+  value = aws_ecs_service.grafana.name
+}
+
+output "grafana_admin_password_secret_arn" {
+  value = aws_secretsmanager_secret.grafana_admin_password.arn
+}
+
 output "alb_dns_name" {
   value = aws_lb.main.dns_name
 }

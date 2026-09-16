@@ -69,3 +69,14 @@ resource "aws_cloudwatch_log_group" "web_adot" {
     service = "web"
   }
 }
+
+# No _adot sibling: Grafana is a consumer of CloudWatch/X-Ray, not a traced business
+# service, so it doesn't run the ADOT sidecar the other four do.
+resource "aws_cloudwatch_log_group" "grafana" {
+  name              = "/${var.name_prefix}/grafana"
+  retention_in_days = 14
+
+  tags = {
+    service = "grafana"
+  }
+}

@@ -145,3 +145,40 @@ resource "aws_ecr_lifecycle_policy" "web" {
     }]
   })
 }
+
+# Grafana - unlike the other four, this image has no build step of its own (see
+# services/grafana/Dockerfile); it's still pushed through this same ECR repo + deploy
+# pipeline so "no latest tags, deploy by digest" holds here too.
+resource "aws_ecr_repository" "grafana" {
+  name                 = "${var.name_prefix}/grafana"
+  image_tag_mutability = "IMMUTABLE"
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+
+  encryption_configuration {
+    encryption_type = "AES256"
+  }
+
+  tags = {
+    service = "grafana"
+  }
+}
+
+resource "aws_ecr_lifecycle_policy" "grafana" {
+  repository = aws_ecr_repository.grafana.name
+  policy = jsonencode({
+    rules = [{
+      rulePriority = 1
+      description  = "expire untagged images after 7 days"
+      selection = {
+        tagStatus   = "untagged"
+        countType   = "sinceImagePushed"
+        countUnit   = "days"
+        countNumber = 7
+      }
+      action = { type = "expire" }
+    }]
+  })
+}
