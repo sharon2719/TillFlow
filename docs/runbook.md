@@ -1,0 +1,90 @@
+# Runbook
+
+On-call reference for the alarms in `infra/monitoring.tf`. If you're reading this because a
+page fired, start with "First response" for that alarm, not the whole document.
+
+Dashboard: `terraform output dashboard_url` (or AWS Console → CloudWatch → Dashboards →
+`devops-g5-overview`). Alarms notify the `devops-g5-alerts` SNS topic (email subscription -
+see `infra/monitoring.tf`).
+
+## What these alarms are (and aren't)
+
+They're built on ALB and RDS metrics - real signals CloudWatch already collects, not the
+exact SLI numerators in `docs/slo-error-budgets.md` (e.g. "valid sale writes accepted
+exactly once"). Getting the exact numerators would mean each service emitting its own
+success/failure/latency metrics per business operation, which none of them do yet - tracked
+as a gap in `docs/production-readiness.md`, not silently assumed done. Until that lands,
+these alarms answer "is the API up and responding reasonably fast", which is most of what
+actually pages someone in practice.
+
+## `<service>-5xx`
+
+**Means:** the ALB's target group for that service returned at least one 5xx in a 5-minute
+window.
+
+**First response:**
+1. Check the dashboard's "5xx count by service" panel - is it one blip or sustained?
+2. Check that service's CloudWatch log group (`/devops-g5/<service>`) for the actual error -
+   `aws logs tail /devops-g5/<service> --since 15m --follow`.
+3. Check `aws ecs describe-services --cluster devops-g5 --services devops-g5-<service>` -
+   is `runningCount` still equal to `desiredCount`? A recent deploy that failed its circuit
+   breaker rolls back automatically, but check `deployments[].rolloutState` to confirm.
+4. If it's payments/commission specifically: check whether the error originated from a
+   downstream call (commission calling payments, or payments calling the fake/real Daraja
+   adapter) before assuming the service itself is broken - see `docs/threat-model.md` #1 for
+   what's and isn't verified about inbound Daraja callbacks today.
+
+## `<service>-latency-p95`
+
+**Means:** p95 response time through the ALB is over that service's SLO target (pos 400ms,
+web 500ms) or a generic health threshold (payments/commission 2s - see `infra/monitoring.tf`
+for why those two don't have a real SLO-derived number yet).
+
+**First response:**
+1. Check RDS CPU/connections on the dashboard - pos, payments, and commission all share one
+   RDS instance; a slow query in one shows up as latency in all three.
+2. Check ECS task CPU/memory (CloudWatch Container Insights isn't enabled yet - use
+   `aws ecs describe-tasks` or the ADOT-fed X-Ray traces for per-request timing).
+3. If sustained and RDS/ECS both look healthy, it may be genuine load - the current
+   `desired_count = 1` per service has no headroom; scaling out is a G3/G4 follow-up, not
+   yet automated.
+
+## `<service>-unhealthy`
+
+**Means:** the target group has 0 healthy targets for 2 consecutive minutes. Because
+`desired_count` is 1 everywhere, a normal rolling deploy briefly shows this for under a
+minute - the 2-minute window is there specifically so a routine release doesn't page
+anyone; if it fires, the deploy is stuck or the task is crash-looping.
+
+**First response:**
+1. `aws ecs describe-services --cluster devops-g5 --services devops-g5-<service>` - look at
+   `events` for the actual failure reason (image pull failure, health check failing, task
+   crashing on startup).
+2. `aws logs tail /devops-g5/<service> --since 15m` for the container's own logs.
+3. If a bad deploy is the cause: the deploy pipeline's own `deployment_circuit_breaker` (see
+   `infra/ecs-*.tf`) should already have rolled it back automatically - confirm the running
+   task definition revision matches the last known-good one from
+   `.github/workflows/deploy-<service>.yml`'s history.
+
+## `rds-cpu` / `rds-connections` / `rds-free-storage`
+
+**Means:** the single shared RDS instance (pos, payments, and commission's schemas all live
+on it - `docs/adr/0003-database.md`) is under CPU/connection/storage pressure.
+
+**First response:**
+1. `rds-connections`: check which service's connection pool is misbehaving -
+   `pg.Pool`'s default max size per service, times three services, times however many tasks
+   are running, is the ceiling; a leak in one service can exhaust it for all three.
+2. `rds-cpu`: check for a runaway query - no slow-query log is wired up yet (tracked gap,
+   see `docs/production-readiness.md`); in the meantime, correlate the spike's timing
+   against each service's request-rate panel on the dashboard.
+3. `rds-free-storage`: `allocated_storage = 20` GB with no autoscaling configured yet - if
+   this fires, either the database is being asked to hold more than expected, or something
+   is writing gratuitously (check migration history isn't re-running unexpectedly).
+
+## Escalation
+
+This is a two-person capstone project (`docs/ownership.md`), not a 24/7 operation - there is
+no secondary on-call. If you can't resolve it from this runbook, the honest next step is:
+leave the alarm firing, note what you tried, and pick it up when the other owner is
+available.
