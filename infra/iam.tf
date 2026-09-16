@@ -532,6 +532,7 @@ data "aws_iam_policy_document" "ci_deploy_infra" {
       "secretsmanager:DeleteSecret",
       "secretsmanager:DescribeSecret",
       "secretsmanager:GetSecretValue",
+      "secretsmanager:GetResourcePolicy", # the AWS provider reads this on every plan/refresh, even with no resource policy attached
       "secretsmanager:PutSecretValue",
       "secretsmanager:TagResource",
       "secretsmanager:UntagResource",
