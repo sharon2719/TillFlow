@@ -101,15 +101,16 @@ push - both are small, contained changes.
 
 ## Observability (see also docs/slo-error-budgets.md, docs/runbook.md, docs/recovery-drills.md)
 
-**No alarm on ELB-level 5xx, only per-target-group 5xx.** Confirmed by
-`docs/recovery-drills.md`'s drill 1: when a service has zero healthy targets, the ALB
-itself returns a 503 (`HTTPCode_ELB_5XX_Count`), which is a different metric from a target
-actually returning a 5xx (`HTTPCode_Target_5XX_Count` — what `infra/monitoring.tf` alarms
-on today). A "no healthy target" event that resolves inside the unhealthy-host alarm's
-2-minute window is currently invisible to every alarm in the stack. Owner: sharon2719.
-Revisit: add an `HTTPCode_ELB_5XX_Count` alarm per load balancer; decide whether
-`desired_count = 2` is worth it for services where the 99.9% SLO budget is tight, given
-every deploy (not just a failure) causes this same brief gap today.
+**`desired_count = 1` everywhere means every deploy — and any task failure — has a real,
+measured gap with no spare capacity.** `docs/recovery-drills.md`'s drill 1 found no alarm
+fired during a real ~30-40s outage; the missing piece (no alarm on `HTTPCode_ELB_5XX_Count`,
+the ALB's own 5xx when it has zero healthy targets, as opposed to `HTTPCode_Target_5XX_Count`
+which a target actually returns) is now fixed — `aws_cloudwatch_metric_alarm.alb_elb_5xx` in
+`infra/monitoring.tf`. What's still open: the unhealthy-host alarm's 2-minute window is still
+longer than a fast self-healing event, so this class of outage still won't page anyone even
+with the new alarm in place, and `desired_count = 2` (removing the gap entirely, at roughly
+double the Fargate cost per service) hasn't been decided. Owner: sharon2719. Revisit: decide
+`desired_count` for services where the 99.9% SLO budget is tight.
 
 **`pos` missed its own p95 latency SLO under concurrent load, cause not yet confirmed.**
 `docs/load-tests.md`'s run 1: 462.9ms p95 against a 400ms target, while CPU stayed under

@@ -7,10 +7,11 @@ Dashboard: `terraform output dashboard_url` (or AWS Console → CloudWatch → D
 `devops-g5-overview`). Alarms notify the `devops-g5-alerts` SNS topic (email subscription -
 see `infra/monitoring.tf`).
 
-See `docs/recovery-drills.md` for what's actually been tested against this stack, including
-a confirmed blind spot: a task replacement fast enough to self-heal in under ~2 minutes
-(which is every routine deploy, and was also true of a real killed task) currently pages
-no one at all.
+See `docs/recovery-drills.md` for what's actually been tested against this stack. It found
+two gaps: a missing ELB-wide 5xx alarm (fixed below, `alb-elb-5xx`) and a task replacement
+fast enough to self-heal in under ~2 minutes (true of every routine deploy, and was also
+true of the drill's real killed task) still pages no one at all - that second one is still
+open, see `docs/production-readiness.md`.
 
 ## What these alarms are (and aren't)
 
@@ -38,6 +39,24 @@ window.
    downstream call (commission calling payments, or payments calling the fake/real Daraja
    adapter) before assuming the service itself is broken - see `docs/threat-model.md` #1 for
    what's and isn't verified about inbound Daraja callbacks today.
+
+## `alb-elb-5xx`
+
+**Means:** the ALB itself returned a 5xx (`HTTPCode_ELB_5XX_Count`) - distinct from a
+target actually responding with one. The most common cause is a target group with zero
+healthy targets: the ALB has nowhere to route the request, so it answers with a 503 on the
+ALB's own behalf. This is exactly what `docs/recovery-drills.md`'s drill 1 found no alarm
+for before this one existed.
+
+**First response:**
+1. Check the dashboard's "5xx count by service" panel - the new "ALB itself" line is
+   load-balancer-wide, not per-service, so cross-reference each service's own healthy-host
+   count on the same dashboard to identify which target group actually had zero healthy
+   targets.
+2. Follow `<service>-unhealthy`'s first response for that service.
+3. If this fires during a deploy window: expected, self-resolving, and part of the accepted
+   tradeoff of `desired_count = 1` (see `docs/production-readiness.md`) - confirm the
+   deploy's circuit breaker didn't roll back, then let it clear.
 
 ## `<service>-latency-p95`
 

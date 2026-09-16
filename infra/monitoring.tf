@@ -348,6 +348,34 @@ resource "aws_cloudwatch_metric_alarm" "rds_connections" {
   }
 }
 
+# --- ALB-wide 5xx: catches what the per-target-group alarms above structurally can't.
+# Confirmed by docs/recovery-drills.md's drill 1 - when a target group has zero healthy
+# targets, the ALB itself returns a 503 counted under HTTPCode_ELB_5XX_Count, a different
+# metric from HTTPCode_Target_5XX_Count (a target actually responding with a 5xx), which is
+# all the per-service alarms above watch. Without this, a "no healthy target" event that
+# resolves inside the unhealthy-host alarm's 2-minute window is invisible to every alarm in
+# the stack - exactly what happened during that drill. ---
+
+resource "aws_cloudwatch_metric_alarm" "alb_elb_5xx" {
+  alarm_name          = "${var.name_prefix}-alb-elb-5xx"
+  alarm_description   = "ALB returned a 5xx itself (e.g. no healthy target for some service) - see docs/runbook.md and docs/recovery-drills.md"
+  namespace           = "AWS/ApplicationELB"
+  metric_name         = "HTTPCode_ELB_5XX_Count"
+  dimensions          = { LoadBalancer = aws_lb.main.arn_suffix }
+  statistic           = "Sum"
+  period              = 60
+  evaluation_periods  = 1
+  threshold           = 1
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  treat_missing_data  = "notBreaching"
+  alarm_actions       = [aws_sns_topic.alerts.arn]
+  ok_actions          = [aws_sns_topic.alerts.arn]
+
+  tags = {
+    service = "platform"
+  }
+}
+
 # --- One dashboard covering every service + RDS, so "is the system healthy right now" is a
 # single link (docs/runbook.md), not four separate CloudWatch metric searches. ---
 
@@ -383,6 +411,7 @@ resource "aws_cloudwatch_dashboard" "overview" {
             ["AWS/ApplicationELB", "HTTPCode_Target_5XX_Count", "LoadBalancer", aws_lb.main.arn_suffix, "TargetGroup", aws_lb_target_group.payments.arn_suffix, { label = "payments" }],
             ["AWS/ApplicationELB", "HTTPCode_Target_5XX_Count", "LoadBalancer", aws_lb.main.arn_suffix, "TargetGroup", aws_lb_target_group.commission.arn_suffix, { label = "commission" }],
             ["AWS/ApplicationELB", "HTTPCode_Target_5XX_Count", "LoadBalancer", aws_lb.main.arn_suffix, "TargetGroup", aws_lb_target_group.web.arn_suffix, { label = "web" }],
+            ["AWS/ApplicationELB", "HTTPCode_ELB_5XX_Count", "LoadBalancer", aws_lb.main.arn_suffix, { label = "ALB itself (e.g. no healthy target)" }],
           ]
         }
       },
