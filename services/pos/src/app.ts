@@ -3,6 +3,7 @@ import { pinoHttp } from "pino-http";
 
 import { healthRouter } from "./health.js";
 import { logger } from "./logger.js";
+import { salesRouter } from "./sales.js";
 
 /**
  * App construction is kept separate from `index.ts`'s `listen()` call so tests can import
@@ -13,6 +14,7 @@ export function createApp() {
   app.use(express.json());
   app.use(pinoHttp({ logger }));
   app.use(healthRouter);
+  app.use(salesRouter);
 
   app.get("/", (_req, res) => {
     res.json({ service: "pos", status: "ok" });
