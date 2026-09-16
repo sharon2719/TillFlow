@@ -7,6 +7,38 @@ variable "payments_image_tag" {
   default     = "bootstrap"
 }
 
+# --- Daraja credentials: real external credentials from Safaricom's own developer portal
+# (Consumer Key/Secret, sandbox shortcode/passkey, B2C initiator/security credential) -
+# unlike web's SESSION_SECRET or Grafana's admin password, Terraform can't generate these
+# itself. Terraform manages the secret container + IAM only; the real JSON value is
+# populated out-of-band via `aws secretsmanager put-secret-value`, never typed into a .tf
+# file or Terraform state as a literal - lifecycle.ignore_changes keeps a later
+# `terraform apply` from ever reverting it back to the "unset" placeholder below. See
+# docs/production-readiness.md and services/payments/.env.daraja.example.
+resource "aws_secretsmanager_secret" "daraja_credentials" {
+  name = "${var.name_prefix}-daraja-credentials"
+
+  tags = {
+    service = "payments"
+  }
+}
+
+resource "aws_secretsmanager_secret_version" "daraja_credentials" {
+  secret_id = aws_secretsmanager_secret.daraja_credentials.id
+  secret_string = jsonencode({
+    DARAJA_CONSUMER_KEY        = "unset"
+    DARAJA_CONSUMER_SECRET     = "unset"
+    DARAJA_SHORTCODE           = "unset"
+    DARAJA_PASSKEY             = "unset"
+    DARAJA_INITIATOR_NAME      = "unset"
+    DARAJA_SECURITY_CREDENTIAL = "unset"
+  })
+
+  lifecycle {
+    ignore_changes = [secret_string]
+  }
+}
+
 resource "aws_ecs_task_definition" "payments" {
   family                   = "${var.name_prefix}-payments"
   requires_compatibilities = ["FARGATE"]
@@ -36,10 +68,18 @@ resource "aws_ecs_task_definition" "payments" {
         { name = "DB_PORT", value = tostring(aws_db_instance.main.port) },
         { name = "DB_NAME", value = aws_db_instance.main.db_name },
         { name = "DB_SCHEMA", value = "payments" },
+        # Not a secret - the public API Gateway endpoint Daraja calls back to.
+        { name = "DARAJA_CALLBACK_BASE_URL", value = aws_apigatewayv2_api.main.api_endpoint },
       ]
       secrets = [
         { name = "DB_USER", valueFrom = "${aws_db_instance.main.master_user_secret[0].secret_arn}:username::" },
         { name = "DB_PASSWORD", valueFrom = "${aws_db_instance.main.master_user_secret[0].secret_arn}:password::" },
+        { name = "DARAJA_CONSUMER_KEY", valueFrom = "${aws_secretsmanager_secret.daraja_credentials.arn}:DARAJA_CONSUMER_KEY::" },
+        { name = "DARAJA_CONSUMER_SECRET", valueFrom = "${aws_secretsmanager_secret.daraja_credentials.arn}:DARAJA_CONSUMER_SECRET::" },
+        { name = "DARAJA_SHORTCODE", valueFrom = "${aws_secretsmanager_secret.daraja_credentials.arn}:DARAJA_SHORTCODE::" },
+        { name = "DARAJA_PASSKEY", valueFrom = "${aws_secretsmanager_secret.daraja_credentials.arn}:DARAJA_PASSKEY::" },
+        { name = "DARAJA_INITIATOR_NAME", valueFrom = "${aws_secretsmanager_secret.daraja_credentials.arn}:DARAJA_INITIATOR_NAME::" },
+        { name = "DARAJA_SECURITY_CREDENTIAL", valueFrom = "${aws_secretsmanager_secret.daraja_credentials.arn}:DARAJA_SECURITY_CREDENTIAL::" },
       ]
       logConfiguration = {
         logDriver = "awslogs"

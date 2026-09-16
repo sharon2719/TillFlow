@@ -6,6 +6,37 @@ owner and a revisit trigger, per the brief's requirement to log accepted risk ra
 silently ignore a scan finding. "Fixed later" items belong in `docs/scar-log.md` instead —
 this file is for things being knowingly left as-is right now.
 
+## Daraja integration (see also services/_shared/src/daraja-adapter.ts)
+
+**`DarajaMpesaAdapter` is verified live for OAuth + STK push + STK query + B2C; the two
+inbound callback routes are not.** `evidence/payments-integrity/daraja-sandbox-verification-2026-09-16.md`
+records real runs against the sandbox: a token exchange, an STK push (`ws_CO_...`
+CheckoutRequestID), a query resolving to a real terminal state (`resultCode 1037`, "DS
+timeout user cannot be reached" - expected, the sandbox test number has no real device
+behind it), and a B2C payout (`AG_...` ConversationID). Live testing also caught and fixed
+a real bug: Daraja's `ResultCode`/`ResponseCode` arrive as JSON numbers, and `4999` ("still
+processing") was falling through to `"failed"` instead of `"pending"` - directly threatening
+the "a timeout is never a decline" guarantee. Now covered by 7 deterministic unit tests in
+`services/_shared/test/daraja-adapter.test.ts`. What's still unverified: both inbound
+callback routes actually receiving a real Daraja-originated webhook, and a B2C payout's
+real result (Daraja resolves B2C only via callback, not a query - see the next entry).
+Owner: sharon2719. Revisit: run an inbound-callback test once `services/payments` is
+deployed and reachable at `DARAJA_CALLBACK_BASE_URL` with a real STK push or B2C payout
+outstanding.
+
+**`DarajaMpesaAdapter.queryTransaction` can't resolve a B2C `conversationId`.** Daraja has
+a dedicated STK query endpoint keyed by `checkoutRequestId`, but no equivalent single call
+for B2C - it resolves purely via the `ResultURL` callback. Given a conversationId, this
+method returns `"pending"` honestly rather than guessing. Owner: sharon2719. Revisit: if
+B2C reconciliation (not just the callback path) turns out to be needed, look at Daraja's
+Transaction Status API (`/mpesa/transactionstatus/v1/query`) - lower confidence than the
+STK query endpoint, deliberately not implemented against without live testing first.
+
+**CI/k6 always get `FakeMpesaAdapter`, never the real one** - `services/payments/src/app.ts`
+only picks `DarajaMpesaAdapter` when all seven `DARAJA_*` env vars are set, and nothing in
+CI or the k6 load test sets them. This is intentional (the brief requires the fake for
+CI/k6 regardless of what's built), not an oversight to fix later.
+
 ## Async infrastructure (see also infra/async.tf)
 
 **ElastiCache, the SQS commission-close queue+DLQ, and its EventBridge Scheduler are

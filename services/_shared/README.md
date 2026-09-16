@@ -14,10 +14,16 @@ the working example.
 ## Contents
 
 - `src/mpesa-adapter.ts` — the `MpesaAdapter` interface and `FakeMpesaAdapter`, the
-  deterministic implementation CI and k6 run against. The real `DarajaMpesaAdapter` isn't
-  written yet - `services/payments` still runs entirely against the fake, which is correct
-  for now (the brief requires the fake for CI/k6 regardless), but real Daraja sandbox
-  integration is still open work.
+  deterministic implementation CI and k6 always run against (never the real one,
+  regardless of what's configured elsewhere - the brief requires this).
+- `src/daraja-adapter.ts` — `DarajaMpesaAdapter`, the real Safaricom Daraja sandbox client
+  (OAuth token exchange, STK push/query, B2C). `services/payments/src/app.ts` uses it
+  automatically once the env vars in `services/payments/.env.daraja.example` are set (copy
+  to `.env.daraja.local`, gitignored, never commit real values), the fake otherwise. Live
+  verification against the real sandbox — actually confirming a token exchange, an STK
+  push, and a real callback all work — is tracked in `docs/production-readiness.md`, not
+  assumed just because the code exists. `services/payments/scripts/test-daraja-sandbox.ts`
+  is the standalone script for doing that verification.
 - OTel tracing is *not* here, deliberately: each service has its own `src/tracing.ts`
   instead of one shared implementation. Auto-instrumentation
   (`@opentelemetry/auto-instrumentations-node`) needs a `--import` loader flag at process

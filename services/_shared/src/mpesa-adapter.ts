@@ -2,9 +2,10 @@
  * The one boundary the Payments service is allowed to cross into the outside world.
  * Everything that talks to Daraja goes through this interface, so:
  *   - CI and k6 run against `FakeMpesaAdapter` (deterministic, no network, no real money)
- *   - the Daraja sandbox is only ever wired in behind `DarajaMpesaAdapter` (not written yet
- *     - services/payments still runs entirely against the fake; real sandbox integration
- *     is open work, see docs/production-readiness.md)
+ *   - the Daraja sandbox is only ever wired in behind `DarajaMpesaAdapter` (daraja-adapter.ts)
+ *     - `services/payments` uses it automatically once the env vars in
+ *     `services/payments/.env.daraja.example` are set, the fake otherwise; live
+ *     verification against the real sandbox is tracked in docs/production-readiness.md
  *   - Commission never gets a reference to either implementation — it only ever calls the
  *     Payments service's own internal API, never this adapter directly.
  */

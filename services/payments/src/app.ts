@@ -1,6 +1,6 @@
 import express from "express";
 import { pinoHttp } from "pino-http";
-import { FakeMpesaAdapter, type MpesaAdapter } from "@tillflow/shared";
+import { DarajaMpesaAdapter, FakeMpesaAdapter, loadDarajaConfigFromEnv, type MpesaAdapter } from "@tillflow/shared";
 
 import { createPool, type Queryable } from "./db.js";
 import { logger } from "./logger.js";
@@ -8,12 +8,25 @@ import { createPaymentsRouter } from "./payments.js";
 import { tracingMiddleware } from "./tracing.js";
 
 /**
- * db and adapter are both injectable, same reasoning as services/pos/src/app.ts: tests use
- * a pg-mem-backed Queryable and the FakeMpesaAdapter is already the deterministic one CI/k6
- * are supposed to run against, so it's also the production default - the real
- * DarajaMpesaAdapter isn't written yet, see services/_shared/README.md.
+ * Real adapter when Daraja env vars are configured (see .env.daraja.example), the fake
+ * otherwise. This is never how CI/k6 pick which one runs - they never set these env vars in
+ * the first place, so they always get the fake, per the brief's explicit requirement,
+ * independent of whether the real adapter exists.
  */
-export function createApp(db: Queryable = createPool(), adapter: MpesaAdapter = new FakeMpesaAdapter()) {
+function defaultAdapter(): MpesaAdapter {
+  try {
+    return new DarajaMpesaAdapter(loadDarajaConfigFromEnv());
+  } catch {
+    return new FakeMpesaAdapter();
+  }
+}
+
+/**
+ * db and adapter are both injectable, same reasoning as services/pos/src/app.ts: tests
+ * always pass a pg-mem-backed Queryable and never set the Daraja env vars, so they always
+ * get the FakeMpesaAdapter regardless of what's configured elsewhere.
+ */
+export function createApp(db: Queryable = createPool(), adapter: MpesaAdapter = defaultAdapter()) {
   const app = express();
   app.use(tracingMiddleware);
   app.use(express.json());

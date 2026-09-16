@@ -23,6 +23,35 @@ function createTestDb(): Queryable {
   return new Pool();
 }
 
+/** Real Daraja STK callback shape (Body.stkCallback), not the flat shape this route used
+ * to accept - see payments.ts's parseStkCallback. */
+function stkCallbackBody(checkoutRequestId: string, resultCode: string, resultDescription: string) {
+  return {
+    Body: {
+      stkCallback: {
+        MerchantRequestID: "test-merchant-request",
+        CheckoutRequestID: checkoutRequestId,
+        ResultCode: Number(resultCode),
+        ResultDesc: resultDescription,
+      },
+    },
+  };
+}
+
+/** Real Daraja B2C result callback shape (Result), not the flat shape this route used to
+ * accept - see payments.ts's parseB2cCallback. */
+function b2cCallbackBody(conversationId: string, resultCode: string, resultDescription: string) {
+  return {
+    Result: {
+      ResultType: 0,
+      ResultCode: Number(resultCode),
+      ResultDesc: resultDescription,
+      ConversationID: conversationId,
+      OriginatorConversationID: "test-originator-conversation",
+    },
+  };
+}
+
 describe("payments API", () => {
   let app: ReturnType<typeof createApp>;
   let adapter: FakeMpesaAdapter;
@@ -46,11 +75,9 @@ describe("payments API", () => {
     expect(stk.body.status).toBe("pending");
     const { checkoutRequestId } = stk.body;
 
-    const callback = await request(app).post("/api/v1/payments/callback").send({
-      checkoutRequestId,
-      resultCode: "0",
-      resultDescription: "success",
-    });
+    const callback = await request(app)
+      .post("/api/v1/payments/callback")
+      .send(stkCallbackBody(checkoutRequestId, "0", "success"));
     expect(callback.status).toBe(200);
     expect(callback.body.status).toBe("completed");
   });
@@ -137,13 +164,13 @@ describe("payments API", () => {
 
     const first = await request(app)
       .post("/api/v1/payments/callback")
-      .send({ checkoutRequestId, resultCode: "0", resultDescription: "success" });
+      .send(stkCallbackBody(checkoutRequestId, "0", "success"));
     expect(first.body.status).toBe("completed");
 
     // Replayed callback claiming failure - must NOT flip an already-resolved payment.
     const replay = await request(app)
       .post("/api/v1/payments/callback")
-      .send({ checkoutRequestId, resultCode: "1", resultDescription: "forced failure attempt" });
+      .send(stkCallbackBody(checkoutRequestId, "1", "forced failure attempt"));
     expect(replay.body.status).toBe("completed");
     expect(replay.body.note).toMatch(/already resolved/i);
   });
@@ -165,7 +192,7 @@ describe("payments API", () => {
 
     const callback = await request(app)
       .post("/api/v1/payments/b2c/callback")
-      .send({ conversationId: first.body.conversationId, resultCode: "0", resultDescription: "success" });
+      .send(b2cCallbackBody(first.body.conversationId, "0", "success"));
     expect(callback.body.status).toBe("completed");
   });
 
