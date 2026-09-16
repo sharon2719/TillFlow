@@ -61,3 +61,92 @@ resource "aws_lb_listener" "pos" {
     service = "pos"
   }
 }
+
+# --- payments + commission share this same ALB, routed by path - one internal ALB, one
+# listener, rules dispatching by path prefix, rather than a second ALB per service (real
+# ongoing cost) or per-service Cloud Map/Service Connect (real added complexity) for what's
+# still a small number of services. pos keeps the listener's default_action above -
+# everything that doesn't match a more specific rule below still goes to pos, same as
+# before these existed. ---
+
+resource "aws_lb_target_group" "payments" {
+  name        = "${var.name_prefix}-payments-tg"
+  port        = 3001
+  protocol    = "HTTP"
+  vpc_id      = aws_vpc.main.id
+  target_type = "ip"
+
+  health_check {
+    path                = "/health"
+    healthy_threshold   = 2
+    unhealthy_threshold = 3
+    interval            = 15
+    timeout             = 5
+    matcher             = "200"
+  }
+
+  tags = {
+    service = "payments"
+  }
+}
+
+resource "aws_lb_listener_rule" "payments" {
+  listener_arn = aws_lb_listener.pos.arn
+  priority     = 10
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.payments.arn
+  }
+
+  condition {
+    path_pattern {
+      values = ["/api/v1/payments/*"]
+    }
+  }
+
+  tags = {
+    service = "payments"
+  }
+}
+
+resource "aws_lb_target_group" "commission" {
+  name        = "${var.name_prefix}-commission-tg"
+  port        = 3002
+  protocol    = "HTTP"
+  vpc_id      = aws_vpc.main.id
+  target_type = "ip"
+
+  health_check {
+    path                = "/health"
+    healthy_threshold   = 2
+    unhealthy_threshold = 3
+    interval            = 15
+    timeout             = 5
+    matcher             = "200"
+  }
+
+  tags = {
+    service = "commission"
+  }
+}
+
+resource "aws_lb_listener_rule" "commission" {
+  listener_arn = aws_lb_listener.pos.arn
+  priority     = 20
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.commission.arn
+  }
+
+  condition {
+    path_pattern {
+      values = ["/api/v1/commission/*"]
+    }
+  }
+
+  tags = {
+    service = "commission"
+  }
+}
