@@ -6,10 +6,16 @@
 # the closest real proxy: 5xx rate and ALB-observed latency approximate "is the API healthy
 # and fast", unhealthy-host count approximates "is the service actually up".
 
+# Encrypted with the AWS-managed key (satisfies AWS-0095's "must be encrypted"). A
+# customer-managed CMK (AWS-0136's stricter ask) needs its own key policy granting
+# CloudWatch/SNS permission to use it - easy to get subtly wrong in a way that doesn't fail
+# loudly: the alarm still fires and shows ALARM in the console, the notification email just
+# silently never decrypts and sends. This topic only ever carries alarm names/descriptions,
+# not customer data, so that risk isn't worth taking for a topic this low-sensitivity. See
+# docs/production-readiness.md.
+# trivy:ignore:AWS-0136 -- accepted risk, owner sharon2719, revisit before G5; see docs/production-readiness.md
 resource "aws_sns_topic" "alerts" {
-  name = "${var.name_prefix}-alerts"
-  # AWS-managed key - CloudWatch's own service-linked permission to publish here doesn't
-  # need a separate key policy grant, unlike a customer-managed CMK would.
+  name              = "${var.name_prefix}-alerts"
   kms_master_key_id = "alias/aws/sns"
 
   tags = {
