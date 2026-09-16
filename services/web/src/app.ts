@@ -1,15 +1,16 @@
 import express from "express";
 import { pinoHttp } from "pino-http";
 
+import { loadConfig } from "./config.js";
 import { logger } from "./logger.js";
+import { createWebRouter } from "./routes.js";
 
-export function createApp() {
+export function createApp(config = loadConfig(), fetchImpl: typeof fetch = fetch) {
   const app = express();
   app.use(express.json());
+  app.use(express.urlencoded({ extended: false }));
   app.use(pinoHttp({ logger }));
-  app.get("/health", (_req, res) => res.json({ status: "ok" }));
-  app.get("/ready", (_req, res) => res.json({ status: "ready" }));
-  app.get("/", (_req, res) => res.json({ service: "web", status: "ok" }));
+  app.use(createWebRouter(config, fetchImpl));
   return app;
 }
 

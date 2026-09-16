@@ -167,6 +167,48 @@ resource "aws_iam_role_policy" "commission_exec_db_secret" {
   policy = data.aws_iam_policy_document.commission_exec_db_secret.json
 }
 
+# --- web: same exec/task role pattern, minus the DB secret grant - web has no database of
+# its own (see infra/ecs-web.tf), so its exec role only needs the managed policy every
+# execution role gets (ECR pull + CloudWatch Logs). Its SESSION_SECRET (infra/ecs-web.tf) is
+# a Terraform `random_password`, passed as a plain task-def env var rather than an AWS
+# Secrets Manager secret - it only signs a session cookie carrying the caller's own API key,
+# so keeping it out of Secrets Manager trades a small, accepted exposure (visible to anyone
+# who can already describe this task definition) for not widening the ci-deploy-infra role's
+# IAM policy with secretsmanager:Create*/PutSecretValue for one non-critical value. ---
+
+resource "aws_iam_role" "web_exec" {
+  name               = "${var.name_prefix}-web-exec"
+  assume_role_policy = data.aws_iam_policy_document.ecs_tasks_assume.json
+
+  tags = {
+    service = "web"
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "web_exec_managed" {
+  role       = aws_iam_role.web_exec.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+}
+
+resource "aws_iam_role" "web_task" {
+  name               = "${var.name_prefix}-web-task"
+  assume_role_policy = data.aws_iam_policy_document.ecs_tasks_assume.json
+
+  tags = {
+    service = "web"
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "web_task_cloudwatch" {
+  role       = aws_iam_role.web_task.name
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
+}
+
+resource "aws_iam_role_policy_attachment" "web_task_xray" {
+  role       = aws_iam_role.web_task.name
+  policy_arn = "arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess"
+}
+
 # --- GitHub Actions OIDC deploy role -------------------------------------------------
 #
 # This AWS account is shared across the whole cohort (docs/adr/0002-region.md), and an
@@ -251,7 +293,7 @@ data "aws_iam_policy_document" "ci_deploy_permissions" {
       "ecr:UploadLayerPart",
       "ecr:CompleteLayerUpload",
     ]
-    resources = [aws_ecr_repository.pos.arn, aws_ecr_repository.payments.arn, aws_ecr_repository.commission.arn]
+    resources = [aws_ecr_repository.pos.arn, aws_ecr_repository.payments.arn, aws_ecr_repository.commission.arn, aws_ecr_repository.web.arn]
   }
 
   statement {
@@ -275,6 +317,7 @@ data "aws_iam_policy_document" "ci_deploy_permissions" {
       aws_iam_role.pos_exec.arn, aws_iam_role.pos_task.arn,
       aws_iam_role.payments_exec.arn, aws_iam_role.payments_task.arn,
       aws_iam_role.commission_exec.arn, aws_iam_role.commission_task.arn,
+      aws_iam_role.web_exec.arn, aws_iam_role.web_task.arn,
     ]
     condition {
       test     = "StringEquals"

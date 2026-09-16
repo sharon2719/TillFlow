@@ -111,3 +111,37 @@ resource "aws_ecr_lifecycle_policy" "commission" {
     }]
   })
 }
+
+resource "aws_ecr_repository" "web" {
+  name                 = "${var.name_prefix}/web"
+  image_tag_mutability = "IMMUTABLE"
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+
+  encryption_configuration {
+    encryption_type = "AES256"
+  }
+
+  tags = {
+    service = "web"
+  }
+}
+
+resource "aws_ecr_lifecycle_policy" "web" {
+  repository = aws_ecr_repository.web.name
+  policy = jsonencode({
+    rules = [{
+      rulePriority = 1
+      description  = "expire untagged images after 7 days"
+      selection = {
+        tagStatus   = "untagged"
+        countType   = "sinceImagePushed"
+        countUnit   = "days"
+        countNumber = 7
+      }
+      action = { type = "expire" }
+    }]
+  })
+}

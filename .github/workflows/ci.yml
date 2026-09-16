@@ -124,6 +124,44 @@ jobs:
           path: sbom-commission.cdx.json
           retention-days: 90
 
+  web:
+    name: web service — typecheck, test, build image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck --workspace=@tillflow/web
+
+      - name: Test
+        run: npm run test --workspace=@tillflow/web
+
+      - name: Build image
+        run: docker build -f services/web/Dockerfile -t tillflow-web:${{ github.sha }} .
+
+      - name: Generate SBOM (CycloneDX)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: image
+          image-ref: tillflow-web:${{ github.sha }}
+          format: cyclonedx
+          output: sbom-web.cdx.json
+
+      - name: Upload SBOM as a build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-web-${{ github.sha }}
+          path: sbom-web.cdx.json
+          retention-days: 90
+
   terraform:
     name: infra — fmt + validate (both stacks; bootstrap stays hand-applied, see its own header)
     runs-on: ubuntu-latest
