@@ -48,6 +48,44 @@ jobs:
           path: sbom-pos.cdx.json
           retention-days: 90
 
+  payments:
+    name: payments service — typecheck, test, build image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck --workspace=@tillflow/payments
+
+      - name: Test
+        run: npm run test --workspace=@tillflow/payments
+
+      - name: Build image
+        run: docker build -f services/payments/Dockerfile -t tillflow-payments:${{ github.sha }} .
+
+      - name: Generate SBOM (CycloneDX)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: image
+          image-ref: tillflow-payments:${{ github.sha }}
+          format: cyclonedx
+          output: sbom-payments.cdx.json
+
+      - name: Upload SBOM as a build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-payments-${{ github.sha }}
+          path: sbom-payments.cdx.json
+          retention-days: 90
+
   terraform:
     name: infra — fmt + validate (both stacks; bootstrap stays hand-applied, see its own header)
     runs-on: ubuntu-latest
@@ -124,5 +162,3 @@ jobs:
 
   # Gated apply on merge to master lives in .github/workflows/infra-apply.yml, not here -
   # separate workflow so it can target its own GitHub Environment approval gate.
-  # TODO(G2): payments / commission jobs, path-filtered so unrelated changes don't rebuild
-  #           every service.

@@ -2,5 +2,22 @@
   "name": "@tillflow/commission",
   "version": "0.0.0",
   "private": true,
-  "description": "Not yet built. EventBridge-triggered worker; calls Payments' API for B2C, never Daraja directly. See docs/architecture.md."
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "express": "^4.21.1",
+    "pino": "^9.5.0",
+    "pino-http": "^10.3.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/supertest": "^6.0.2",
+    "supertest": "^7.0.2"
+  }
 }
