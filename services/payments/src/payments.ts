@@ -4,6 +4,40 @@ import type { MpesaAdapter } from "@tillflow/shared";
 
 import type { Queryable } from "./db.js";
 
+/**
+ * Real Daraja STK callbacks arrive nested under Body.stkCallback, not as the flat
+ * {checkoutRequestId, resultCode, resultDescription} this route used to expect - that
+ * shape never matched anything the real sandbox actually sends. A failed/cancelled push has
+ * no CallbackMetadata at all, only CallbackMetadata.Item entries on success.
+ */
+function parseStkCallback(
+  body: unknown,
+): { checkoutRequestId: string; resultCode: string; resultDescription: string } | null {
+  const cb = (body as { Body?: { stkCallback?: Record<string, unknown> } })?.Body?.stkCallback;
+  if (!cb || typeof cb.CheckoutRequestID !== "string" || cb.ResultCode === undefined) {
+    return null;
+  }
+  return {
+    checkoutRequestId: cb.CheckoutRequestID,
+    resultCode: String(cb.ResultCode),
+    resultDescription: typeof cb.ResultDesc === "string" ? cb.ResultDesc : "",
+  };
+}
+
+/** Real Daraja B2C result callbacks arrive nested under Result, not the flat shape this
+ * route used to expect. */
+function parseB2cCallback(body: unknown): { conversationId: string; resultCode: string; resultDescription: string } | null {
+  const result = (body as { Result?: Record<string, unknown> })?.Result;
+  if (!result || typeof result.ConversationID !== "string" || result.ResultCode === undefined) {
+    return null;
+  }
+  return {
+    conversationId: result.ConversationID,
+    resultCode: String(result.ResultCode),
+    resultDescription: typeof result.ResultDesc === "string" ? result.ResultDesc : "",
+  };
+}
+
 interface StkPushBody {
   tenantId: string;
   saleId: string;
@@ -149,15 +183,12 @@ export function createPaymentsRouter(db: Queryable, adapter: MpesaAdapter): Rout
   // is handled by the state-machine check below, forged origin is not). Real fix needs a
   // way to verify the caller actually is Daraja, tracked in docs/production-readiness.md.
   router.post("/api/v1/payments/callback", async (req, res) => {
-    const { checkoutRequestId, resultCode, resultDescription } = req.body as {
-      checkoutRequestId?: string;
-      resultCode?: string;
-      resultDescription?: string;
-    };
-    if (!checkoutRequestId || typeof checkoutRequestId !== "string") {
-      res.status(400).json({ error: "checkoutRequestId is required" });
+    const parsed = parseStkCallback(req.body);
+    if (!parsed) {
+      res.status(400).json({ error: "malformed STK callback body" });
       return;
     }
+    const { checkoutRequestId, resultCode, resultDescription } = parsed;
 
     const existing = await db.query<{ id: string; status: string }>(
       "SELECT id, status FROM payments.stk_requests WHERE checkout_request_id = $1",
@@ -239,15 +270,12 @@ export function createPaymentsRouter(db: Queryable, adapter: MpesaAdapter): Rout
 
   // Daraja's B2C result callback - same one-legal-transition guard as the STK callback.
   router.post("/api/v1/payments/b2c/callback", async (req, res) => {
-    const { conversationId, resultCode, resultDescription } = req.body as {
-      conversationId?: string;
-      resultCode?: string;
-      resultDescription?: string;
-    };
-    if (!conversationId || typeof conversationId !== "string") {
-      res.status(400).json({ error: "conversationId is required" });
+    const parsed = parseB2cCallback(req.body);
+    if (!parsed) {
+      res.status(400).json({ error: "malformed B2C callback body" });
       return;
     }
+    const { conversationId, resultCode, resultDescription } = parsed;
 
     const existing = await db.query<{ id: string; status: string }>(
       "SELECT id, status FROM payments.b2c_requests WHERE conversation_id = $1",

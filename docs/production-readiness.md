@@ -6,6 +6,33 @@ owner and a revisit trigger, per the brief's requirement to log accepted risk ra
 silently ignore a scan finding. "Fixed later" items belong in `docs/scar-log.md` instead —
 this file is for things being knowingly left as-is right now.
 
+## Daraja integration (see also services/_shared/src/daraja-adapter.ts)
+
+**`DarajaMpesaAdapter` exists and is wired into `services/payments`, but is not yet
+verified against the real sandbox.** OAuth token exchange, STK push/query, and B2C are
+implemented against Daraja's published API contract (endpoint paths, field names,
+timestamp/password format), and the STK/B2C callback routes in `payments.ts` now parse
+Daraja's real nested payload shape (`Body.stkCallback` / `Result`) instead of the
+simplified flat shape the routes used to accept. None of this has been run against a live
+Daraja sandbox app yet - that needs real credentials
+(`services/payments/.env.daraja.example` lists what's needed) and a run of
+`services/payments/scripts/test-daraja-sandbox.ts`. Owner: sharon2719. Revisit: before
+claiming this gap closed, actually run the sandbox script and record the result (success
+or the specific failure) in `evidence/payments-integrity/`.
+
+**`DarajaMpesaAdapter.queryTransaction` can't resolve a B2C `conversationId`.** Daraja has
+a dedicated STK query endpoint keyed by `checkoutRequestId`, but no equivalent single call
+for B2C - it resolves purely via the `ResultURL` callback. Given a conversationId, this
+method returns `"pending"` honestly rather than guessing. Owner: sharon2719. Revisit: if
+B2C reconciliation (not just the callback path) turns out to be needed, look at Daraja's
+Transaction Status API (`/mpesa/transactionstatus/v1/query`) - lower confidence than the
+STK query endpoint, deliberately not implemented against without live testing first.
+
+**CI/k6 always get `FakeMpesaAdapter`, never the real one** - `services/payments/src/app.ts`
+only picks `DarajaMpesaAdapter` when all seven `DARAJA_*` env vars are set, and nothing in
+CI or the k6 load test sets them. This is intentional (the brief requires the fake for
+CI/k6 regardless of what's built), not an oversight to fix later.
+
 ## Async infrastructure (see also infra/async.tf)
 
 **ElastiCache, the SQS commission-close queue+DLQ, and its EventBridge Scheduler are
