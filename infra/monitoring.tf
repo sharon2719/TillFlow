@@ -8,6 +8,9 @@
 
 resource "aws_sns_topic" "alerts" {
   name = "${var.name_prefix}-alerts"
+  # AWS-managed key - CloudWatch's own service-linked permission to publish here doesn't
+  # need a separate key policy grant, unlike a customer-managed CMK would.
+  kms_master_key_id = "alias/aws/sns"
 
   tags = {
     service = "platform"
