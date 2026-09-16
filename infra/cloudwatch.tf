@@ -51,3 +51,21 @@ resource "aws_cloudwatch_log_group" "commission_adot" {
     service = "commission"
   }
 }
+
+resource "aws_cloudwatch_log_group" "web" {
+  name              = "/${var.name_prefix}/web"
+  retention_in_days = 14
+
+  tags = {
+    service = "web"
+  }
+}
+
+resource "aws_cloudwatch_log_group" "web_adot" {
+  name              = "/${var.name_prefix}/web-adot"
+  retention_in_days = 14
+
+  tags = {
+    service = "web"
+  }
+}

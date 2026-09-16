@@ -38,6 +38,14 @@ output "commission_ecs_service_name" {
   value = aws_ecs_service.commission.name
 }
 
+output "web_ecr_repository_url" {
+  value = aws_ecr_repository.web.repository_url
+}
+
+output "web_ecs_service_name" {
+  value = aws_ecs_service.web.name
+}
+
 output "alb_dns_name" {
   value = aws_lb.main.dns_name
 }

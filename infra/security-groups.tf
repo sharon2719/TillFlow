@@ -91,6 +91,21 @@ resource "aws_security_group" "commission_task" {
   }
 }
 
+resource "aws_security_group" "web_task" {
+  name_prefix = "${var.name_prefix}-web-task-"
+  description = "web ECS task - ingress only from the ALB"
+  vpc_id      = aws_vpc.main.id
+
+  tags = {
+    Name    = "${var.name_prefix}-web-task-sg"
+    service = "web"
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
 # --- vpc_link -> alb (port 80) ---
 
 resource "aws_vpc_security_group_egress_rule" "vpc_link_to_alb" {
@@ -235,6 +250,65 @@ resource "aws_vpc_security_group_ingress_rule" "alb_from_commission_task" {
   }
 }
 
+# --- alb -> web_task (port 3003) ---
+
+resource "aws_vpc_security_group_egress_rule" "alb_to_web_task" {
+  security_group_id            = aws_security_group.alb.id
+  description                  = "to the web ECS task"
+  referenced_security_group_id = aws_security_group.web_task.id
+  from_port                    = 3003
+  to_port                      = 3003
+  ip_protocol                  = "tcp"
+
+  tags = {
+    service = "web"
+  }
+}
+
+resource "aws_vpc_security_group_ingress_rule" "web_task_from_alb" {
+  security_group_id            = aws_security_group.web_task.id
+  description                  = "from the ALB"
+  referenced_security_group_id = aws_security_group.alb.id
+  from_port                    = 3003
+  to_port                      = 3003
+  ip_protocol                  = "tcp"
+
+  tags = {
+    service = "web"
+  }
+}
+
+# --- web_task -> alb (port 80) ---
+#
+# web is a BFF: it calls pos/payments/commission's real HTTP APIs over the SAME internal
+# ALB they already sit behind (see infra/alb.tf's path-based listener rules), same pattern
+# as commission calling payments' B2C endpoint.
+resource "aws_vpc_security_group_egress_rule" "web_task_to_alb" {
+  security_group_id            = aws_security_group.web_task.id
+  description                  = "to the ALB (calls pos, payments and commission)"
+  referenced_security_group_id = aws_security_group.alb.id
+  from_port                    = 80
+  to_port                      = 80
+  ip_protocol                  = "tcp"
+
+  tags = {
+    service = "web"
+  }
+}
+
+resource "aws_vpc_security_group_ingress_rule" "alb_from_web_task" {
+  security_group_id            = aws_security_group.alb.id
+  description                  = "from the web ECS task"
+  referenced_security_group_id = aws_security_group.web_task.id
+  from_port                    = 80
+  to_port                      = 80
+  ip_protocol                  = "tcp"
+
+  tags = {
+    service = "web"
+  }
+}
+
 # --- pos_task egress ---
 #
 # DNS resolution stays inside the VPC (its default resolver lives at the VPC base+2
@@ -367,6 +441,49 @@ resource "aws_vpc_security_group_egress_rule" "commission_task_https" {
 
   tags = {
     service = "commission"
+  }
+}
+
+# --- web_task egress: DNS + HTTPS, same reasoning as pos_task above. web has no database of
+# its own, so unlike payments/commission there is no RDS egress rule to add here. ---
+
+resource "aws_vpc_security_group_egress_rule" "web_task_dns_tcp" {
+  security_group_id = aws_security_group.web_task.id
+  description       = "DNS (VPC resolver only)"
+  cidr_ipv4         = var.vpc_cidr
+  from_port         = 53
+  to_port           = 53
+  ip_protocol       = "tcp"
+
+  tags = {
+    service = "web"
+  }
+}
+
+resource "aws_vpc_security_group_egress_rule" "web_task_dns_udp" {
+  security_group_id = aws_security_group.web_task.id
+  description       = "DNS (VPC resolver only)"
+  cidr_ipv4         = var.vpc_cidr
+  from_port         = 53
+  to_port           = 53
+  ip_protocol       = "udp"
+
+  tags = {
+    service = "web"
+  }
+}
+
+# trivy:ignore:AWS-0104 -- accepted risk, owner sharon2719, revisit before G5 or when VPC endpoints are added; see docs/production-readiness.md
+resource "aws_vpc_security_group_egress_rule" "web_task_https" {
+  security_group_id = aws_security_group.web_task.id
+  description       = "HTTPS to AWS APIs (ECR/CloudWatch/X-Ray/STS) via NAT - no VPC endpoints yet, see docs/production-readiness.md"
+  cidr_ipv4         = "0.0.0.0/0"
+  from_port         = 443
+  to_port           = 443
+  ip_protocol       = "tcp"
+
+  tags = {
+    service = "web"
   }
 }
 

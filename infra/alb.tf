@@ -150,3 +150,47 @@ resource "aws_lb_listener_rule" "commission" {
     service = "commission"
   }
 }
+
+resource "aws_lb_target_group" "web" {
+  name        = "${var.name_prefix}-web-tg"
+  port        = 3003
+  protocol    = "HTTP"
+  vpc_id      = aws_vpc.main.id
+  target_type = "ip"
+
+  health_check {
+    path                = "/health"
+    healthy_threshold   = 2
+    unhealthy_threshold = 3
+    interval            = 15
+    timeout             = 5
+    matcher             = "200"
+  }
+
+  tags = {
+    service = "web"
+  }
+}
+
+# web's UI/BFF routes all live under /app/* (login, dashboard, form actions) - a distinct
+# prefix from the other services' /api/v1/<service>/* convention, chosen so a plain "/" and
+# "/login" aren't ambiguous with pos's default_action catch-all.
+resource "aws_lb_listener_rule" "web" {
+  listener_arn = aws_lb_listener.pos.arn
+  priority     = 30
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.web.arn
+  }
+
+  condition {
+    path_pattern {
+      values = ["/app/*"]
+    }
+  }
+
+  tags = {
+    service = "web"
+  }
+}
