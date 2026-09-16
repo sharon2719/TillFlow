@@ -99,6 +99,10 @@ export function createCommissionRouter(db: Queryable, callB2c: B2cCaller): Route
   const router = Router();
 
   router.get("/health", (_req, res) => res.status(200).json({ status: "ok" }));
+  // Also mounted under the path the ALB's listener rule actually routes here
+  // (/api/v1/commission/*, see infra/alb.tf) - bare /health falls through to pos's default
+  // action instead, since it doesn't match that path pattern.
+  router.get("/api/v1/commission/health", (_req, res) => res.status(200).json({ status: "ok" }));
 
   router.post("/api/v1/commission/close", async (req, res) => {
     try {
