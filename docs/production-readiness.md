@@ -8,21 +8,29 @@ this file is for things being knowingly left as-is right now.
 
 ## Daraja integration (see also services/_shared/src/daraja-adapter.ts)
 
-**`DarajaMpesaAdapter` is verified live for OAuth + STK push + STK query + B2C; the two
-inbound callback routes are not.** `evidence/payments-integrity/daraja-sandbox-verification-2026-09-16.md`
-records real runs against the sandbox: a token exchange, an STK push (`ws_CO_...`
-CheckoutRequestID), a query resolving to a real terminal state (`resultCode 1037`, "DS
-timeout user cannot be reached" - expected, the sandbox test number has no real device
-behind it), and a B2C payout (`AG_...` ConversationID). Live testing also caught and fixed
-a real bug: Daraja's `ResultCode`/`ResponseCode` arrive as JSON numbers, and `4999` ("still
-processing") was falling through to `"failed"` instead of `"pending"` - directly threatening
-the "a timeout is never a decline" guarantee. Now covered by 7 deterministic unit tests in
-`services/_shared/test/daraja-adapter.test.ts`. What's still unverified: both inbound
-callback routes actually receiving a real Daraja-originated webhook, and a B2C payout's
-real result (Daraja resolves B2C only via callback, not a query - see the next entry).
-Owner: sharon2719. Revisit: run an inbound-callback test once `services/payments` is
-deployed and reachable at `DARAJA_CALLBACK_BASE_URL` with a real STK push or B2C payout
-outstanding.
+**`DarajaMpesaAdapter` is verified live end to end for outbound calls, deployed and running
+in the real payments service with real Secrets-Manager-backed credentials; the two inbound
+callback routes have never been observed to receive a real Daraja webhook.**
+`evidence/payments-integrity/daraja-sandbox-verification-2026-09-16.md` records real runs
+against the sandbox: a token exchange, an STK push (`ws_CO_...` CheckoutRequestID), a query
+resolving to a real terminal state (`resultCode 1037`, "DS timeout user cannot be reached" -
+expected, the sandbox test number has no real device behind it), and a B2C payout
+(`AG_...` ConversationID) - all repeated directly against the live deployed service (task
+definition revision `:5`) after merging, not just locally. Live testing also caught and
+fixed a real bug: Daraja's `ResultCode`/`ResponseCode` arrive as JSON numbers, and `4999`
+("still processing") was falling through to `"failed"` instead of `"pending"` - directly
+threatening the "a timeout is never a decline" guarantee. Now covered by 7 deterministic
+unit tests in `services/_shared/test/daraja-adapter.test.ts`.
+
+What's still unverified, and confirmed genuinely not received rather than just unchecked:
+waited 13+ minutes (STK) and 7+ minutes (B2C) after triggering real transactions against the
+live endpoint, checked both `services/payments`' own CloudWatch logs and the API Gateway's
+access logs (which correctly captured every other request in the test, ruling out a logging
+or routing blind spot) - no request to either callback path arrived at either layer. This
+means Daraja's sandbox didn't deliver a callback in the window tested, not that one was
+sent and rejected on our end. Owner: sharon2719. Revisit: retry with a longer wait window,
+or investigate whether Safaricom's sandbox callback delivery has a known reliability gap
+for this test scenario specifically.
 
 **`DarajaMpesaAdapter.queryTransaction` can't resolve a B2C `conversationId`.** Daraja has
 a dedicated STK query endpoint keyed by `checkoutRequestId`, but no equivalent single call

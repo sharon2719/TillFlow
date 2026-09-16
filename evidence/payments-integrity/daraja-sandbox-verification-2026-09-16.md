@@ -89,6 +89,33 @@ A real Daraja B2C ConversationID (`AG_...` format) came back, using the same sho
 (`174379`) as `PartyA` - confirms B2C doesn't need a separate test shortcode from STK, and
 that `InitiatorName`/`SecurityCredential` were both accepted as valid.
 
+## Run 6 — deployed to real AWS, inbound callback attempted and not observed
+
+With `feat/g2-daraja-adapter` merged and deployed (task definition revision `:5`, all six
+Daraja secrets confirmed present via `aws ecs describe-task-definition`), triggered a real
+STK push and a real B2C payout directly against the live public endpoint
+(`https://6lak1mzcai.execute-api.eu-west-1.amazonaws.com`), both accepted by Daraja with real
+IDs. Confirmed the deployed service is genuinely running `DarajaMpesaAdapter` (not the fake -
+the returned IDs are real `ws_CO_...`/`AG_...` formats), and `GET /transactions/:id` performed
+a real, live `source: "reconciled"` query against Daraja from inside AWS.
+
+**No inbound callback arrived at either `/api/v1/payments/callback` or
+`/api/v1/payments/b2c/callback`** within 13+ minutes (STK) / 7+ minutes (B2C) of waiting.
+Checked two independent log sources to rule out a routing/rejection problem on our side:
+
+- `services/payments`' own CloudWatch logs (`/devops-g5/payments`): no request to either
+  callback path.
+- The API Gateway's own access logs (`/devops-g5/api-gateway`), which *did* correctly
+  capture every one of the test's own outbound requests (the STK push, the B2C payout, both
+  status queries) - confirming logging itself works and nothing reached even the edge for
+  either callback path.
+
+This means Daraja's sandbox itself did not deliver a callback in the observed window, not
+that one was sent and rejected. Plausible causes: Safaricom's sandbox is documented
+elsewhere as sometimes slow or unreliable about callback delivery for the "customer
+unreachable" test scenario specifically; it may simply need longer than tested here; or
+there's a delivery-side condition not yet identified. Not confirmed which.
+
 ## What this confirms
 
 - OAuth token exchange: **verified live**.
@@ -96,16 +123,16 @@ that `InitiatorName`/`SecurityCredential` were both accepted as valid.
 - STK query / reconciliation (pending -> real terminal state, including the 4999 "still
   processing" state): **verified live**, after fixing two real bugs it exposed.
 - B2C payment request (request shape, response parsing): **verified live**.
+- The real adapter is genuinely running in the deployed AWS service, with real credentials
+  resolved from Secrets Manager: **verified live**.
 
 ## What's still unverified
 
-- The result of a B2C payout - Daraja resolves B2C purely via the `ResultURL` callback,
+- Both inbound callback routes actually receiving a real Daraja-originated webhook. Tested
+  directly against the live deployed service (not just locally) and not observed within a
+  13-minute window - see run 6. Not ruled out as working, just not yet caught in the act.
+- The result of a B2C payout specifically - Daraja resolves B2C purely via the callback,
   which `queryTransaction` can't proactively check (see `daraja-adapter.ts`'s own comment on
-  why). Needs a real inbound webhook to observe.
-- Both inbound callback routes (`/api/v1/payments/callback` and
-  `/api/v1/payments/b2c/callback`) actually receiving a real Daraja-originated webhook - every
-  run above tested us calling Daraja, not Daraja calling us. That needs
-  `services/payments` deployed and reachable at `DARAJA_CALLBACK_BASE_URL` with a real STK
-  push or B2C payout outstanding.
+  why), so this is entirely dependent on the callback landing.
 
 Tracked as the remaining open item in `docs/production-readiness.md`.
