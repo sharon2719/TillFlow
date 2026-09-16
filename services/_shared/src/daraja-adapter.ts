@@ -86,11 +86,11 @@ export class DarajaMpesaAdapter implements MpesaAdapter {
     });
     const body = (await res.json().catch(() => ({}))) as {
       CheckoutRequestID?: string;
-      ResponseCode?: string;
+      ResponseCode?: string | number;
       ResponseDescription?: string;
       errorMessage?: string;
     };
-    if (res.ok && body.ResponseCode === "0" && body.CheckoutRequestID) {
+    if (res.ok && String(body.ResponseCode) === "0" && body.CheckoutRequestID) {
       return { status: "accepted", checkoutRequestId: body.CheckoutRequestID };
     }
     return {
@@ -119,11 +119,11 @@ export class DarajaMpesaAdapter implements MpesaAdapter {
     });
     const body = (await res.json().catch(() => ({}))) as {
       ConversationID?: string;
-      ResponseCode?: string;
+      ResponseCode?: string | number;
       ResponseDescription?: string;
       errorMessage?: string;
     };
-    if (res.ok && body.ResponseCode === "0" && body.ConversationID) {
+    if (res.ok && String(body.ResponseCode) === "0" && body.ConversationID) {
       return { status: "accepted", conversationId: body.ConversationID };
     }
     return {
@@ -157,16 +157,28 @@ export class DarajaMpesaAdapter implements MpesaAdapter {
         CheckoutRequestID: checkoutOrConversationId,
       }),
     });
-    const body = (await res.json().catch(() => ({}))) as { ResultCode?: string; ResultDesc?: string };
+    // Daraja's ResultCode arrives as a JSON number, not a string, in at least some
+    // responses (confirmed live) - comparing it directly against "0" would silently never
+    // match, so every result including genuine success would fall through to "failed".
+    const body = (await res.json().catch(() => ({}))) as { ResultCode?: string | number; ResultDesc?: string };
     if (!res.ok || body.ResultCode === undefined) {
       // Daraja answers with an error (e.g. errorCode 500.001.1001) while the transaction is
       // still being processed - that's "no answer yet", not a real failure.
       return { status: "pending" };
     }
-    if (body.ResultCode === "0") {
-      return { status: "completed", resultCode: body.ResultCode, resultDescription: body.ResultDesc };
+    const resultCode = String(body.ResultCode);
+    // ResultCode 4999 ("The transaction is still under processing") is Daraja's own
+    // documented code for "not resolved yet" - confirmed live (see
+    // evidence/payments-integrity/). Treating it as "failed" would report a still-in-flight
+    // payment as declined, which is exactly the "timeout is not a decline" violation
+    // docs/threat-model.md #2 exists to prevent.
+    if (resultCode === "4999") {
+      return { status: "pending" };
     }
-    return { status: "failed", resultCode: body.ResultCode, resultDescription: body.ResultDesc };
+    if (resultCode === "0") {
+      return { status: "completed", resultCode, resultDescription: body.ResultDesc };
+    }
+    return { status: "failed", resultCode, resultDescription: body.ResultDesc };
   }
 }
 

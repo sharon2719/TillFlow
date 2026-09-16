@@ -75,12 +75,32 @@ async function main() {
     await new Promise((r) => setTimeout(r, 5000));
     const query = await adapter.queryTransaction(result.checkoutRequestId);
     console.log(`   status=${query.status} resultCode=${query.resultCode ?? "(none yet)"} resultDescription=${query.resultDescription ?? "(none yet)"}`);
-    console.log("\nAll three calls completed. This confirms OAuth + STK push + STK query work against the real sandbox.");
-    console.log("B2C and the two callback endpoints still need their own verification - see docs/production-readiness.md.");
+    console.log("\nSTK push + query confirmed against the real sandbox.");
   } else {
     console.log(`   REJECTED: ${result.reason}`);
     console.log("\nOAuth worked (step 1 succeeded) but the STK push itself was rejected - check the reason above.");
   }
+
+  console.log("\n4. B2C payout to the sandbox test number...");
+  const b2cResult = await adapter.b2c({
+    tenantId: "daraja-sandbox-test",
+    payoutId: "sandbox-test-payout",
+    msisdn: testMsisdn,
+    amountMinorUnits: 1000, // 10 KES - some Daraja sandbox configs reject amounts under 10
+    idempotencyKey: `sandbox-test-b2c-${Date.now()}`,
+  });
+
+  if (b2cResult.status === "accepted") {
+    console.log(`   OK - accepted, conversationId=${b2cResult.conversationId}`);
+    console.log("   (queryTransaction can't resolve a B2C conversationId - see daraja-adapter.ts - so there's");
+    console.log("   nothing to query here; the real result only ever arrives via the ResultURL callback,");
+    console.log("   which needs services/payments actually deployed and reachable to observe.)");
+  } else {
+    console.log(`   REJECTED: ${b2cResult.reason}`);
+  }
+
+  console.log("\nThe STK/callback endpoints (Daraja calling us, not us calling Daraja) still need their own");
+  console.log("verification - see docs/production-readiness.md.");
 }
 
 main().catch((err) => {

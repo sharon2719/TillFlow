@@ -51,18 +51,61 @@ to a real terminal state with Daraja's own result code, exercising the exact "pe
 real outcome, not just a canned success" reconciliation path
 `docs/production-readiness.md` flagged as unverified.
 
+## Run 4 — a second query hit a real bug: ResultCode 4999 misclassified as failed
+
+A repeat of the push-then-query sequence returned this from Daraja before run 3's later
+query caught the real terminal state:
+
+```
+status=failed resultCode=4999 resultDescription=The transaction is still under processing
+```
+
+**4999 is Daraja's own documented code for "not resolved yet" - the adapter was reporting it
+as a real failure.** Two compounding bugs, both real, both fixed in the same pass:
+
+1. `queryTransaction` only special-cased `ResultCode === undefined` as pending; a
+   present-but-non-`"0"` code like 4999 fell through to `"failed"`. Fixed: `4999` is now
+   explicitly treated as pending.
+2. Daraja's `ResultCode` (and, checked defensively at the same time, `ResponseCode` on the
+   STK/B2C accept responses) arrives as a **JSON number**, not a string - `body.ResultCode
+   === "0"` would never match a real success either, for the same reason. Fixed with
+   `String(body.ResultCode)` before any comparison.
+
+This directly threatened the system's own "a timeout is never treated as a decline"
+guarantee (`docs/threat-model.md` #2) - the exact failure mode the fake-adapter test suite
+already covers for simulated timeouts, now also closed for the real adapter. Locked in with
+5 new deterministic unit tests in `services/_shared/test/daraja-adapter.test.ts` (mocked
+fetch, not dependent on hitting this exact timing window against the live sandbox again) -
+all pass, plus 2 more covering the numeric-`ResponseCode` fix on `stkPush`/`b2c`.
+
+## Run 5 — B2C payout, real acceptance
+
+```
+4. B2C payout to the sandbox test number...
+   OK - accepted, conversationId=AG_20260916_010010031466x43pb6h6
+```
+
+A real Daraja B2C ConversationID (`AG_...` format) came back, using the same shortcode
+(`174379`) as `PartyA` - confirms B2C doesn't need a separate test shortcode from STK, and
+that `InitiatorName`/`SecurityCredential` were both accepted as valid.
+
 ## What this confirms
 
 - OAuth token exchange: **verified live**.
 - STK push (request shape, response parsing): **verified live**.
-- STK query / reconciliation (pending -> real terminal state): **verified live**.
+- STK query / reconciliation (pending -> real terminal state, including the 4999 "still
+  processing" state): **verified live**, after fixing two real bugs it exposed.
+- B2C payment request (request shape, response parsing): **verified live**.
 
 ## What's still unverified
 
-- B2C payment request and its result callback.
-- The STK result callback (`/api/v1/payments/callback`) receiving a real Daraja-originated
-  webhook - this run only exercised the query path, not an inbound callback from Daraja
-  itself. That needs the payments service actually deployed and reachable at
-  `DARAJA_CALLBACK_BASE_URL` while a real STK push is outstanding.
+- The result of a B2C payout - Daraja resolves B2C purely via the `ResultURL` callback,
+  which `queryTransaction` can't proactively check (see `daraja-adapter.ts`'s own comment on
+  why). Needs a real inbound webhook to observe.
+- Both inbound callback routes (`/api/v1/payments/callback` and
+  `/api/v1/payments/b2c/callback`) actually receiving a real Daraja-originated webhook - every
+  run above tested us calling Daraja, not Daraja calling us. That needs
+  `services/payments` deployed and reachable at `DARAJA_CALLBACK_BASE_URL` with a real STK
+  push or B2C payout outstanding.
 
 Tracked as the remaining open item in `docs/production-readiness.md`.

@@ -8,17 +8,21 @@ this file is for things being knowingly left as-is right now.
 
 ## Daraja integration (see also services/_shared/src/daraja-adapter.ts)
 
-**`DarajaMpesaAdapter` is verified live for OAuth + STK push + STK query; B2C and the
-inbound callback path are not.** `evidence/payments-integrity/daraja-sandbox-verification-2026-09-16.md`
-records three real runs against the sandbox: a token exchange, an STK push that returned a
-real `ws_CO_...` CheckoutRequestID, and a query that correctly resolved it to a real
-terminal state (`resultCode 1037`, "DS timeout user cannot be reached" - expected, since the
-sandbox test number has no real device behind it). What's still unverified: a real B2C
-payment request, and a real inbound webhook from Daraja actually reaching
-`/api/v1/payments/callback` (the run above only exercised the query path, not Daraja
-calling us). Owner: sharon2719. Revisit: run B2C and an inbound-callback test once
-`services/payments` is deployed and reachable at `DARAJA_CALLBACK_BASE_URL` with a real
-STK push outstanding.
+**`DarajaMpesaAdapter` is verified live for OAuth + STK push + STK query + B2C; the two
+inbound callback routes are not.** `evidence/payments-integrity/daraja-sandbox-verification-2026-09-16.md`
+records real runs against the sandbox: a token exchange, an STK push (`ws_CO_...`
+CheckoutRequestID), a query resolving to a real terminal state (`resultCode 1037`, "DS
+timeout user cannot be reached" - expected, the sandbox test number has no real device
+behind it), and a B2C payout (`AG_...` ConversationID). Live testing also caught and fixed
+a real bug: Daraja's `ResultCode`/`ResponseCode` arrive as JSON numbers, and `4999` ("still
+processing") was falling through to `"failed"` instead of `"pending"` - directly threatening
+the "a timeout is never a decline" guarantee. Now covered by 7 deterministic unit tests in
+`services/_shared/test/daraja-adapter.test.ts`. What's still unverified: both inbound
+callback routes actually receiving a real Daraja-originated webhook, and a B2C payout's
+real result (Daraja resolves B2C only via callback, not a query - see the next entry).
+Owner: sharon2719. Revisit: run an inbound-callback test once `services/payments` is
+deployed and reachable at `DARAJA_CALLBACK_BASE_URL` with a real STK push or B2C payout
+outstanding.
 
 **`DarajaMpesaAdapter.queryTransaction` can't resolve a B2C `conversationId`.** Daraja has
 a dedicated STK query endpoint keyed by `checkoutRequestId`, but no equivalent single call
