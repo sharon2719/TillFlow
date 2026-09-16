@@ -1,26 +1,26 @@
-name: Deploy pos
+name: Deploy payments
 
 on:
   push:
     branches: [master]
     paths:
-      - "services/pos/**"
+      - "services/payments/**"
       - "services/_shared/**"
-      - ".github/workflows/deploy-pos.yml"
+      - ".github/workflows/deploy-payments.yml"
   workflow_dispatch: {}
 
 permissions:
-  id-token: write # required for OIDC -> AWS
+  id-token: write
   contents: read
 
 env:
   AWS_REGION: eu-west-1
   CI_DEPLOY_ROLE_ARN: arn:aws:iam::240462142849:role/devops-g5-ci-deploy
-  ECR_REPOSITORY: devops-g5/pos
+  ECR_REPOSITORY: devops-g5/payments
   ECS_CLUSTER: devops-g5
-  ECS_SERVICE: devops-g5-pos
-  TASK_FAMILY: devops-g5-pos
-  CONTAINER_NAME: pos
+  ECS_SERVICE: devops-g5-payments
+  TASK_FAMILY: devops-g5-payments
+  CONTAINER_NAME: payments
   API_NAME: devops-g5-api
 
 jobs:
@@ -34,11 +34,11 @@ jobs:
           node-version: "22"
           cache: "npm"
       - run: npm ci
-      - run: npm run typecheck --workspace=@tillflow/pos
-      - run: npm run test --workspace=@tillflow/pos
+      - run: npm run typecheck --workspace=@tillflow/payments
+      - run: npm run test --workspace=@tillflow/payments
 
   deploy:
-    name: build, push, deploy, smoke test
+    name: build, push, migrate, deploy, smoke test
     needs: test
     runs-on: ubuntu-latest
     steps:
@@ -60,15 +60,12 @@ jobs:
           REGISTRY: ${{ steps.ecr-login.outputs.registry }}
         run: |
           IMAGE="$REGISTRY/${{ env.ECR_REPOSITORY }}:${{ github.sha }}"
-          docker build -f services/pos/Dockerfile -t "$IMAGE" .
+          docker build -f services/payments/Dockerfile -t "$IMAGE" .
           docker push "$IMAGE"
           echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
 
-      # Terraform owns the task definition's *shape* (cpu/memory/roles/sidecar/log config —
-      # see infra/ecs-task-def.tf); this pipeline owns *which image* is actually running.
-      # Fetching the live definition and only swapping the app container's image keeps
-      # those two ownership boundaries honest instead of duplicating the shape in a second
-      # static JSON file that could drift from Terraform's.
+      # Terraform owns the task definition's shape (infra/ecs-payments.tf); this pipeline
+      # owns which image is actually running - same split as deploy-pos.yml.
       - name: Register a new task definition revision with the new image
         id: register
         run: |
@@ -100,7 +97,7 @@ jobs:
             --task-definition "${{ steps.register.outputs.task_def_arn }}" \
             --launch-type FARGATE \
             --network-configuration "$NETWORK_CONFIG" \
-            --overrides '{"containerOverrides":[{"name":"${{ env.CONTAINER_NAME }}","command":["node","services/pos/dist/migrate.js"]}]}' \
+            --overrides '{"containerOverrides":[{"name":"${{ env.CONTAINER_NAME }}","command":["node","services/payments/dist/migrate.js"]}]}' \
             --query 'tasks[0].taskArn' --output text)
 
           echo "Migration task: $TASK_ARN"
@@ -126,9 +123,6 @@ jobs:
             --task-definition "${{ steps.register.outputs.task_def_arn }}" \
             --force-new-deployment
 
-          # If the deployment circuit breaker rolls back, this still returns once the
-          # service is stable again (at the rolled-back revision) - the next step catches
-          # that by checking which revision is actually running.
           aws ecs wait services-stable \
             --cluster "${{ env.ECS_CLUSTER }}" \
             --services "${{ env.ECS_SERVICE }}"
@@ -149,11 +143,11 @@ jobs:
           API_ENDPOINT=$(aws apigatewayv2 get-apis \
             --query "Items[?Name=='${{ env.API_NAME }}'].ApiEndpoint" --output text)
           for i in $(seq 1 10); do
-            if curl -sf "$API_ENDPOINT/health" | grep -q '"status":"ok"'; then
-              echo "Smoke test passed against $API_ENDPOINT/health"
+            if curl -sf "$API_ENDPOINT/api/v1/payments/health" | grep -q '"status":"ok"'; then
+              echo "Smoke test passed against $API_ENDPOINT/api/v1/payments/health"
               exit 0
             fi
             sleep 6
           done
-          echo "::error::Smoke test failed — $API_ENDPOINT/health never returned a healthy response"
+          echo "::error::Smoke test failed — $API_ENDPOINT/api/v1/payments/health never returned a healthy response"
           exit 1

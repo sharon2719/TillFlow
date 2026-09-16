@@ -1,20 +1,25 @@
 # @tillflow/shared
 
-Shared code across services, per the brief's mono-repo layout. Nothing here is consumed by
-another workspace yet — `services/pos` currently duplicates its own tiny `logger.ts`/
-`health.ts` rather than depending on this package, to keep the very first commit low-risk.
-Once `services/payments` is built (which genuinely needs the M-Pesa adapter interface
-below), this package gets wired in as a real npm workspace dependency and `pos`'s local
-copies get replaced with imports from here in the same PR.
+Shared code across services, per the brief's mono-repo layout. Now a real, buildable
+workspace package (`npm run build --workspace=@tillflow/shared` -> `dist/`) consumed by
+`services/payments`. `services/pos` still hasn't needed anything from here — its own
+`logger.ts`/`health.ts` stay local until it does.
+
+Any service that imports this package needs `services/_shared/dist` present in its own
+Docker runtime stage too, at the same relative path (`services/_shared/...`) - that's where
+the npm workspace symlink (`node_modules/@tillflow/shared -> ../../services/_shared`)
+actually points, both locally and inside the image. See `services/payments/Dockerfile` for
+the working example.
 
 ## Contents
 
 - `src/mpesa-adapter.ts` — the `MpesaAdapter` interface and `FakeMpesaAdapter`, the
-  deterministic implementation CI and k6 run against. The real `DarajaMpesaAdapter` lands
-  here alongside the Payments service.
-- OTel setup and the Docker base pattern are not written yet — planned for when a second
-  service (`payments`) needs identical ADOT wiring, so the shared code is extracted from a
-  working example instead of designed speculatively.
+  deterministic implementation CI and k6 run against. The real `DarajaMpesaAdapter` isn't
+  written yet - `services/payments` still runs entirely against the fake, which is correct
+  for now (the brief requires the fake for CI/k6 regardless), but real Daraja sandbox
+  integration is still open work.
+- OTel setup is not written yet - same reasoning as before, extracted once a second service
+  needs identical wiring rather than designed speculatively.
 
 ## Docker base pattern (documented here, applied per-service)
 

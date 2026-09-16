@@ -36,6 +36,25 @@ Owner: sharon2719. Revisit: before G5, or immediately if cost budget allows.
 **Single-AZ RDS, no Multi-AZ failover** — disclosed cost trade-off, logged in the ADR
 already. Owner: sharon2719. Revisit: before this ran for real.
 
+**pos connects to RDS with `rejectUnauthorized: false`** (`services/pos/src/db.ts`)
+The connection is still encrypted in transit (RDS requires TLS by default), but the server
+certificate isn't verified against the RDS CA bundle, so it's not protected against a
+man-in-the-middle inside the VPC. Pinning the actual RDS CA bundle is a small, known fix -
+just not done in this first pass.
+Owner: sharon2719. Revisit: before this ran for real, or whenever the payments service's DB
+connection is being set up anyway (do both at once).
+
+**No per-service least-privilege DB role yet — pos connects with the RDS master
+credential** (`infra/rds.tf`, `infra/ecs-task-def.tf`)
+ADR-0003 calls for a dedicated role per service; this uses schema-level separation
+(`pos.*` tables) with the shared master credential instead, since building that properly
+means either an imperative bootstrap script or pulling in a whole extra Terraform provider
+(`cyrilgdn/postgres`) to manage roles/grants declaratively — real scope, not a one-line
+addition, and not worth it for a single-service database yet.
+Owner: sharon2719. Revisit: when payments becomes the second service sharing this
+instance — that's the point where schema-only separation stops being enough and a real
+credential boundary between services actually starts mattering.
+
 **~~DynamoDB lock table has no point-in-time recovery, no customer-managed KMS key~~ — fixed
 2026-09-15.** Both were cheap to add while touching this resource for the naming/tag audit
 (`infra/bootstrap/main.tf`): PITR enabled, encryption now uses the same KMS key as the

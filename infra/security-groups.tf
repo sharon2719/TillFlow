@@ -61,6 +61,36 @@ resource "aws_security_group" "pos_task" {
   }
 }
 
+resource "aws_security_group" "payments_task" {
+  name_prefix = "${var.name_prefix}-payments-task-"
+  description = "payments ECS task - ingress only from the ALB"
+  vpc_id      = aws_vpc.main.id
+
+  tags = {
+    Name    = "${var.name_prefix}-payments-task-sg"
+    service = "payments"
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_security_group" "commission_task" {
+  name_prefix = "${var.name_prefix}-commission-task-"
+  description = "commission ECS task - ingress only from the ALB"
+  vpc_id      = aws_vpc.main.id
+
+  tags = {
+    Name    = "${var.name_prefix}-commission-task-sg"
+    service = "commission"
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
 # --- vpc_link -> alb (port 80) ---
 
 resource "aws_vpc_security_group_egress_rule" "vpc_link_to_alb" {
@@ -117,6 +147,94 @@ resource "aws_vpc_security_group_ingress_rule" "pos_task_from_alb" {
   }
 }
 
+# --- alb -> payments_task (port 3001) ---
+
+resource "aws_vpc_security_group_egress_rule" "alb_to_payments_task" {
+  security_group_id            = aws_security_group.alb.id
+  description                  = "to the payments ECS task"
+  referenced_security_group_id = aws_security_group.payments_task.id
+  from_port                    = 3001
+  to_port                      = 3001
+  ip_protocol                  = "tcp"
+
+  tags = {
+    service = "payments"
+  }
+}
+
+resource "aws_vpc_security_group_ingress_rule" "payments_task_from_alb" {
+  security_group_id            = aws_security_group.payments_task.id
+  description                  = "from the ALB"
+  referenced_security_group_id = aws_security_group.alb.id
+  from_port                    = 3001
+  to_port                      = 3001
+  ip_protocol                  = "tcp"
+
+  tags = {
+    service = "payments"
+  }
+}
+
+# --- alb -> commission_task (port 3002) ---
+
+resource "aws_vpc_security_group_egress_rule" "alb_to_commission_task" {
+  security_group_id            = aws_security_group.alb.id
+  description                  = "to the commission ECS task"
+  referenced_security_group_id = aws_security_group.commission_task.id
+  from_port                    = 3002
+  to_port                      = 3002
+  ip_protocol                  = "tcp"
+
+  tags = {
+    service = "commission"
+  }
+}
+
+resource "aws_vpc_security_group_ingress_rule" "commission_task_from_alb" {
+  security_group_id            = aws_security_group.commission_task.id
+  description                  = "from the ALB"
+  referenced_security_group_id = aws_security_group.alb.id
+  from_port                    = 3002
+  to_port                      = 3002
+  ip_protocol                  = "tcp"
+
+  tags = {
+    service = "commission"
+  }
+}
+
+# --- commission_task -> alb (port 80) ---
+#
+# Commission calls Payments' B2C endpoint over HTTP through the SAME internal ALB pos and
+# payments already sit behind (see infra/alb.tf's path-based listener rules) - simplest way
+# to get service-to-service reachability out of infra that already exists, rather than
+# standing up a second internal load balancer or Cloud Map/Service Connect for one caller.
+resource "aws_vpc_security_group_egress_rule" "commission_task_to_alb" {
+  security_group_id            = aws_security_group.commission_task.id
+  description                  = "to the ALB (calls the payments /api/v1/payments/b2c endpoint)"
+  referenced_security_group_id = aws_security_group.alb.id
+  from_port                    = 80
+  to_port                      = 80
+  ip_protocol                  = "tcp"
+
+  tags = {
+    service = "commission"
+  }
+}
+
+resource "aws_vpc_security_group_ingress_rule" "alb_from_commission_task" {
+  security_group_id            = aws_security_group.alb.id
+  description                  = "from the commission ECS task"
+  referenced_security_group_id = aws_security_group.commission_task.id
+  from_port                    = 80
+  to_port                      = 80
+  ip_protocol                  = "tcp"
+
+  tags = {
+    service = "commission"
+  }
+}
+
 # --- pos_task egress ---
 #
 # DNS resolution stays inside the VPC (its default resolver lives at the VPC base+2
@@ -165,5 +283,144 @@ resource "aws_vpc_security_group_egress_rule" "pos_task_https" {
 
   tags = {
     service = "pos"
+  }
+}
+
+# --- payments_task egress: DNS + HTTPS, same reasoning as pos_task above ---
+
+resource "aws_vpc_security_group_egress_rule" "payments_task_dns_tcp" {
+  security_group_id = aws_security_group.payments_task.id
+  description       = "DNS (VPC resolver only)"
+  cidr_ipv4         = var.vpc_cidr
+  from_port         = 53
+  to_port           = 53
+  ip_protocol       = "tcp"
+
+  tags = {
+    service = "payments"
+  }
+}
+
+resource "aws_vpc_security_group_egress_rule" "payments_task_dns_udp" {
+  security_group_id = aws_security_group.payments_task.id
+  description       = "DNS (VPC resolver only)"
+  cidr_ipv4         = var.vpc_cidr
+  from_port         = 53
+  to_port           = 53
+  ip_protocol       = "udp"
+
+  tags = {
+    service = "payments"
+  }
+}
+
+# trivy:ignore:AWS-0104 -- accepted risk, owner sharon2719, revisit before G5 or when VPC endpoints are added; see docs/production-readiness.md
+resource "aws_vpc_security_group_egress_rule" "payments_task_https" {
+  security_group_id = aws_security_group.payments_task.id
+  description       = "HTTPS to AWS APIs (ECR/CloudWatch/X-Ray/STS) via NAT - no VPC endpoints yet, see docs/production-readiness.md"
+  cidr_ipv4         = "0.0.0.0/0"
+  from_port         = 443
+  to_port           = 443
+  ip_protocol       = "tcp"
+
+  tags = {
+    service = "payments"
+  }
+}
+
+# --- commission_task egress: DNS + HTTPS, same reasoning as pos_task above ---
+
+resource "aws_vpc_security_group_egress_rule" "commission_task_dns_tcp" {
+  security_group_id = aws_security_group.commission_task.id
+  description       = "DNS (VPC resolver only)"
+  cidr_ipv4         = var.vpc_cidr
+  from_port         = 53
+  to_port           = 53
+  ip_protocol       = "tcp"
+
+  tags = {
+    service = "commission"
+  }
+}
+
+resource "aws_vpc_security_group_egress_rule" "commission_task_dns_udp" {
+  security_group_id = aws_security_group.commission_task.id
+  description       = "DNS (VPC resolver only)"
+  cidr_ipv4         = var.vpc_cidr
+  from_port         = 53
+  to_port           = 53
+  ip_protocol       = "udp"
+
+  tags = {
+    service = "commission"
+  }
+}
+
+# trivy:ignore:AWS-0104 -- accepted risk, owner sharon2719, revisit before G5 or when VPC endpoints are added; see docs/production-readiness.md
+resource "aws_vpc_security_group_egress_rule" "commission_task_https" {
+  security_group_id = aws_security_group.commission_task.id
+  description       = "HTTPS to AWS APIs (ECR/CloudWatch/X-Ray/STS) via NAT - no VPC endpoints yet, see docs/production-readiness.md"
+  cidr_ipv4         = "0.0.0.0/0"
+  from_port         = 443
+  to_port           = 443
+  ip_protocol       = "tcp"
+
+  tags = {
+    service = "commission"
+  }
+}
+
+# --- RDS access for payments_task and commission_task (rds_from_pos_task and
+# pos_task_to_rds already exist in infra/rds.tf) ---
+
+resource "aws_vpc_security_group_ingress_rule" "rds_from_payments_task" {
+  security_group_id            = aws_security_group.rds.id
+  description                  = "from the payments ECS task"
+  referenced_security_group_id = aws_security_group.payments_task.id
+  from_port                    = 5432
+  to_port                      = 5432
+  ip_protocol                  = "tcp"
+
+  tags = {
+    service = "payments"
+  }
+}
+
+resource "aws_vpc_security_group_egress_rule" "payments_task_to_rds" {
+  security_group_id            = aws_security_group.payments_task.id
+  description                  = "to RDS"
+  referenced_security_group_id = aws_security_group.rds.id
+  from_port                    = 5432
+  to_port                      = 5432
+  ip_protocol                  = "tcp"
+
+  tags = {
+    service = "payments"
+  }
+}
+
+resource "aws_vpc_security_group_ingress_rule" "rds_from_commission_task" {
+  security_group_id            = aws_security_group.rds.id
+  description                  = "from the commission ECS task"
+  referenced_security_group_id = aws_security_group.commission_task.id
+  from_port                    = 5432
+  to_port                      = 5432
+  ip_protocol                  = "tcp"
+
+  tags = {
+    service = "commission"
+  }
+}
+
+resource "aws_vpc_security_group_egress_rule" "commission_task_to_rds" {
+  security_group_id            = aws_security_group.commission_task.id
+  description                  = "to RDS"
+  referenced_security_group_id = aws_security_group.rds.id
+  from_port                    = 5432
+  to_port                      = 5432
+  ip_protocol                  = "tcp"
+
+  tags = {
+    service = "commission"
   }
 }

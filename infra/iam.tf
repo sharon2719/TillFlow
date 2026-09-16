@@ -49,6 +49,124 @@ resource "aws_iam_role_policy_attachment" "pos_task_xray" {
   policy_arn = "arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess"
 }
 
+# The RDS master credential is AWS-managed (manage_master_user_password = true in
+# infra/rds.tf) - it lives in a Secrets Manager secret Terraform never sees the value of.
+# This goes on the EXECUTION role, not the task role: ECS's native `secrets` field on a
+# container definition (see ecs-task-def.tf) is resolved by the execution role at container
+# startup, before the app code (and its task role) ever runs.
+data "aws_iam_policy_document" "pos_exec_db_secret" {
+  statement {
+    sid       = "ReadDbSecret"
+    actions   = ["secretsmanager:GetSecretValue"]
+    resources = [aws_db_instance.main.master_user_secret[0].secret_arn]
+  }
+}
+
+resource "aws_iam_role_policy" "pos_exec_db_secret" {
+  name   = "${var.name_prefix}-pos-exec-db-secret"
+  role   = aws_iam_role.pos_exec.id
+  policy = data.aws_iam_policy_document.pos_exec_db_secret.json
+}
+
+# --- payments: same three-role pattern as pos (exec pulls image + resolves the DB secret,
+# task role gets CloudWatch/X-Ray for the ADOT sidecar). ---
+
+resource "aws_iam_role" "payments_exec" {
+  name               = "${var.name_prefix}-payments-exec"
+  assume_role_policy = data.aws_iam_policy_document.ecs_tasks_assume.json
+
+  tags = {
+    service = "payments"
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "payments_exec_managed" {
+  role       = aws_iam_role.payments_exec.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+}
+
+resource "aws_iam_role" "payments_task" {
+  name               = "${var.name_prefix}-payments-task"
+  assume_role_policy = data.aws_iam_policy_document.ecs_tasks_assume.json
+
+  tags = {
+    service = "payments"
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "payments_task_cloudwatch" {
+  role       = aws_iam_role.payments_task.name
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
+}
+
+resource "aws_iam_role_policy_attachment" "payments_task_xray" {
+  role       = aws_iam_role.payments_task.name
+  policy_arn = "arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess"
+}
+
+data "aws_iam_policy_document" "payments_exec_db_secret" {
+  statement {
+    sid       = "ReadDbSecret"
+    actions   = ["secretsmanager:GetSecretValue"]
+    resources = [aws_db_instance.main.master_user_secret[0].secret_arn]
+  }
+}
+
+resource "aws_iam_role_policy" "payments_exec_db_secret" {
+  name   = "${var.name_prefix}-payments-exec-db-secret"
+  role   = aws_iam_role.payments_exec.id
+  policy = data.aws_iam_policy_document.payments_exec_db_secret.json
+}
+
+# --- commission: same pattern again. ---
+
+resource "aws_iam_role" "commission_exec" {
+  name               = "${var.name_prefix}-commission-exec"
+  assume_role_policy = data.aws_iam_policy_document.ecs_tasks_assume.json
+
+  tags = {
+    service = "commission"
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "commission_exec_managed" {
+  role       = aws_iam_role.commission_exec.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+}
+
+resource "aws_iam_role" "commission_task" {
+  name               = "${var.name_prefix}-commission-task"
+  assume_role_policy = data.aws_iam_policy_document.ecs_tasks_assume.json
+
+  tags = {
+    service = "commission"
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "commission_task_cloudwatch" {
+  role       = aws_iam_role.commission_task.name
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
+}
+
+resource "aws_iam_role_policy_attachment" "commission_task_xray" {
+  role       = aws_iam_role.commission_task.name
+  policy_arn = "arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess"
+}
+
+data "aws_iam_policy_document" "commission_exec_db_secret" {
+  statement {
+    sid       = "ReadDbSecret"
+    actions   = ["secretsmanager:GetSecretValue"]
+    resources = [aws_db_instance.main.master_user_secret[0].secret_arn]
+  }
+}
+
+resource "aws_iam_role_policy" "commission_exec_db_secret" {
+  name   = "${var.name_prefix}-commission-exec-db-secret"
+  role   = aws_iam_role.commission_exec.id
+  policy = data.aws_iam_policy_document.commission_exec_db_secret.json
+}
+
 # --- GitHub Actions OIDC deploy role -------------------------------------------------
 #
 # This AWS account is shared across the whole cohort (docs/adr/0002-region.md), and an
@@ -133,7 +251,7 @@ data "aws_iam_policy_document" "ci_deploy_permissions" {
       "ecr:UploadLayerPart",
       "ecr:CompleteLayerUpload",
     ]
-    resources = [aws_ecr_repository.pos.arn]
+    resources = [aws_ecr_repository.pos.arn, aws_ecr_repository.payments.arn, aws_ecr_repository.commission.arn]
   }
 
   statement {
@@ -145,14 +263,19 @@ data "aws_iam_policy_document" "ci_deploy_permissions" {
       "ecs:RegisterTaskDefinition",
       "ecs:UpdateService",
       "ecs:ListTasks",
+      "ecs:RunTask", # the one-off migration task in deploy-pos.yml
     ]
     resources = ["*"] # ECS describe/register actions don't support resource-level scoping consistently
   }
 
   statement {
-    sid       = "PassEcsRoles"
-    actions   = ["iam:PassRole"]
-    resources = [aws_iam_role.pos_exec.arn, aws_iam_role.pos_task.arn]
+    sid     = "PassEcsRoles"
+    actions = ["iam:PassRole"]
+    resources = [
+      aws_iam_role.pos_exec.arn, aws_iam_role.pos_task.arn,
+      aws_iam_role.payments_exec.arn, aws_iam_role.payments_task.arn,
+      aws_iam_role.commission_exec.arn, aws_iam_role.commission_task.arn,
+    ]
     condition {
       test     = "StringEquals"
       variable = "iam:PassedToService"
@@ -185,6 +308,7 @@ data "aws_iam_policy_document" "ci_deploy_infra" {
       "ecr:*",
       "logs:*",
       "apigateway:*",
+      "rds:*", # added for infra/rds.tf (G2) - didn't exist when this statement was first written
     ]
     resources = ["*"]
     condition {

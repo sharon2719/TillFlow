@@ -56,12 +56,17 @@ brief calls out contracts and validation boundaries specifically as owned decisi
 
 ## Status
 
-As of 2026-09-15: the request path above (API Gateway -> VPC Link -> ALB -> ECS Fargate,
-app + ADOT sidecar) is written in Terraform, validated, and `plan`'d clean against real AWS
-(37 resources), but not yet `apply`'d in this environment. `services/pos` still only has
-`/health` and `/ready` — no database, no Daraja integration, and the ADOT sidecar boots
-alongside it but pos doesn't emit real OTLP telemetry yet (that's separate OTel SDK work,
-not yet done). Payments, Commission, Web, and RDS/ElastiCache/SQS/EventBridge are still to
-be built — those get added to `infra/` once a service actually needs them, same pattern as
-`_shared`. This file is kept current as each piece lands; treat any mismatch between this
-doc and the repo as a bug in this doc.
+As of 2026-09-15 (G2 underway): the full request path (API Gateway -> VPC Link -> ALB -> ECS
+Fargate, app + ADOT sidecar) is live in AWS and deployed via the real pipeline. RDS
+(PostgreSQL, single instance, schema-per-service) is also live - `pos` is its first tenant,
+with a `pos` schema holding tenants/attendants/tills/api_keys (docs/adr/0007). Tenant setup
+is real and tested: `POST /tenants` bootstraps a tenant + owner, `POST /attendants` and
+`POST/GET /tills` are API-key-authenticated and tenant-scoped (verified via an explicit
+cross-tenant isolation test, not just asserted). Migrations run as a one-off ECS task in the
+deploy pipeline itself, not by hand.
+
+Still ahead: sale recording (next), Daraja integration, Commission, Web, and
+ElastiCache/SQS/EventBridge - added once a service actually needs them, same pattern used
+for everything so far. The ADOT sidecar boots but `pos` doesn't emit real OTLP telemetry
+yet (separate OTel SDK work, still not done). This file is kept current as each piece
+lands; treat any mismatch between this doc and the repo as a bug in this doc.
