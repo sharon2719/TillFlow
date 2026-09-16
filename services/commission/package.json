@@ -8,8 +8,8 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "migrate": "tsx src/migrate.ts",
-    "test": "vitest run",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "test": "npm run build --workspace=@tillflow/shared && vitest run",
+    "typecheck": "npm run build --workspace=@tillflow/shared && tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "express": "^4.21.1",
