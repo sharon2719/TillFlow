@@ -110,6 +110,12 @@ data "aws_iam_policy_document" "payments_exec_db_secret" {
     actions   = ["secretsmanager:GetSecretValue"]
     resources = [aws_db_instance.main.master_user_secret[0].secret_arn]
   }
+
+  statement {
+    sid       = "ReadDarajaCredentials"
+    actions   = ["secretsmanager:GetSecretValue"]
+    resources = [aws_secretsmanager_secret.daraja_credentials.arn]
+  }
 }
 
 resource "aws_iam_role_policy" "payments_exec_db_secret" {
@@ -538,6 +544,21 @@ data "aws_iam_policy_document" "ci_deploy_infra" {
       "secretsmanager:UntagResource",
     ]
     resources = ["arn:aws:secretsmanager:${var.region}:240462142849:secret:${var.name_prefix}-grafana-admin-password-*"]
+  }
+
+  statement {
+    sid = "DarajaCredentialsSecret"
+    actions = [
+      "secretsmanager:CreateSecret",
+      "secretsmanager:DeleteSecret",
+      "secretsmanager:DescribeSecret",
+      "secretsmanager:GetSecretValue",
+      "secretsmanager:GetResourcePolicy",
+      "secretsmanager:PutSecretValue",
+      "secretsmanager:TagResource",
+      "secretsmanager:UntagResource",
+    ]
+    resources = ["arn:aws:secretsmanager:${var.region}:240462142849:secret:${var.name_prefix}-daraja-credentials-*"]
   }
 }
 
