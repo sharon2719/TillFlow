@@ -1,3 +1,5 @@
+import { injectTraceHeaders } from "./tracing.js";
+
 export interface BackendResponse<T = Record<string, unknown>> {
   status: number;
   body: T;
@@ -18,6 +20,9 @@ export async function backendRequest<T = Record<string, unknown>>(
 ): Promise<BackendResponse<T>> {
   const headers: Record<string, string> = { "Content-Type": "application/json", ...init.headers };
   if (init.apiKey) headers.Authorization = `Bearer ${init.apiKey}`;
+  // Joins the browser-originated trace this request started (see tracing.ts) instead of
+  // pos/payments/commission each starting their own isolated one.
+  injectTraceHeaders(headers);
 
   const res = await fetchImpl(`${baseUrl}${path}`, {
     method: init.method ?? "GET",

@@ -6,6 +6,7 @@ import { healthRouter } from "./health.js";
 import { logger } from "./logger.js";
 import { createTenantsRouter } from "./routes/tenants.js";
 import { createSalesRouter } from "./sales.js";
+import { tracingMiddleware } from "./tracing.js";
 
 /**
  * App construction is kept separate from `index.ts`'s `listen()` call so tests can import
@@ -15,6 +16,7 @@ import { createSalesRouter } from "./sales.js";
  */
 export function createApp(db: Queryable = createPool()) {
   const app = express();
+  app.use(tracingMiddleware);
   app.use(express.json());
   app.use(pinoHttp({ logger }));
   app.use(healthRouter);

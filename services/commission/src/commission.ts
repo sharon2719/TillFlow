@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Router } from "express";
 
 import type { Queryable } from "./db.js";
+import { injectTraceHeaders } from "./tracing.js";
 
 interface PaidSale {
   saleId: string;
@@ -38,7 +39,11 @@ export function defaultB2cCaller(paymentsApiUrl: string): B2cCaller {
     try {
       const res = await fetch(`${paymentsApiUrl}/api/v1/payments/b2c`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        // Injects the active trace context so this call joins the same trace as the
+        // commission close request that triggered it, instead of starting a new one on
+        // payments' side - this is what connects "commission run -> B2C call" into one
+        // trace, not two isolated ones.
+        headers: injectTraceHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify(req),
       });
       const body = (await res.json().catch(() => ({}))) as { conversationId?: string; error?: string };

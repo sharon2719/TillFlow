@@ -18,8 +18,14 @@ the working example.
   written yet - `services/payments` still runs entirely against the fake, which is correct
   for now (the brief requires the fake for CI/k6 regardless), but real Daraja sandbox
   integration is still open work.
-- OTel setup is not written yet - same reasoning as before, extracted once a second service
-  needs identical wiring rather than designed speculatively.
+- OTel tracing is *not* here, deliberately: each service has its own `src/tracing.ts`
+  instead of one shared implementation. Auto-instrumentation
+  (`@opentelemetry/auto-instrumentations-node`) needs a `--import` loader flag at process
+  start to hook ESM's module resolution, which is fragile to get right across four
+  Dockerfiles; manual span creation works the same in ESM as CJS with no loader flag, at
+  the cost of ~60 near-identical lines duplicated four times. See any service's
+  `tracing.ts` for the actual pattern (span-per-request middleware + W3C trace-context
+  propagation on outgoing calls).
 
 ## Docker base pattern (documented here, applied per-service)
 

@@ -5,6 +5,7 @@ import { FakeMpesaAdapter, type MpesaAdapter } from "@tillflow/shared";
 import { createPool, type Queryable } from "./db.js";
 import { logger } from "./logger.js";
 import { createPaymentsRouter } from "./payments.js";
+import { tracingMiddleware } from "./tracing.js";
 
 /**
  * db and adapter are both injectable, same reasoning as services/pos/src/app.ts: tests use
@@ -14,6 +15,7 @@ import { createPaymentsRouter } from "./payments.js";
  */
 export function createApp(db: Queryable = createPool(), adapter: MpesaAdapter = new FakeMpesaAdapter()) {
   const app = express();
+  app.use(tracingMiddleware);
   app.use(express.json());
   app.use(pinoHttp({ logger }));
   app.use(createPaymentsRouter(db, adapter));
