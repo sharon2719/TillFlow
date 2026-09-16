@@ -209,6 +209,97 @@ resource "aws_iam_role_policy_attachment" "web_task_xray" {
   policy_arn = "arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess"
 }
 
+# --- grafana: exec role resolves the admin-password secret (aws_secretsmanager_secret.
+# grafana_admin_password lives in infra/ecs-grafana.tf); task role is read-only against
+# CloudWatch/X-Ray/CloudWatch Logs Insights - it's a dashboard consumer, nothing it displays
+# is writable through this role. No CloudWatchAgentServerPolicy/XRayDaemonWriteAccess like
+# the other four - those are for a task that WRITES telemetry (the ADOT sidecar pattern),
+# which grafana doesn't run (see infra/cloudwatch.tf's comment on why there's no
+# grafana_adot log group). ---
+
+resource "aws_iam_role" "grafana_exec" {
+  name               = "${var.name_prefix}-grafana-exec"
+  assume_role_policy = data.aws_iam_policy_document.ecs_tasks_assume.json
+
+  tags = {
+    service = "grafana"
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "grafana_exec_managed" {
+  role       = aws_iam_role.grafana_exec.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+}
+
+data "aws_iam_policy_document" "grafana_exec_admin_secret" {
+  statement {
+    sid       = "ReadGrafanaAdminSecret"
+    actions   = ["secretsmanager:GetSecretValue"]
+    resources = [aws_secretsmanager_secret.grafana_admin_password.arn]
+  }
+}
+
+resource "aws_iam_role_policy" "grafana_exec_admin_secret" {
+  name   = "${var.name_prefix}-grafana-exec-admin-secret"
+  role   = aws_iam_role.grafana_exec.id
+  policy = data.aws_iam_policy_document.grafana_exec_admin_secret.json
+}
+
+resource "aws_iam_role" "grafana_task" {
+  name               = "${var.name_prefix}-grafana-task"
+  assume_role_policy = data.aws_iam_policy_document.ecs_tasks_assume.json
+
+  tags = {
+    service = "grafana"
+  }
+}
+
+data "aws_iam_policy_document" "grafana_task_read_observability" {
+  statement {
+    sid = "CloudWatchReadOnly"
+    actions = [
+      "cloudwatch:DescribeAlarms",
+      "cloudwatch:GetMetricData",
+      "cloudwatch:GetMetricStatistics",
+      "cloudwatch:GetDashboard",
+      "cloudwatch:ListDashboards",
+      "cloudwatch:ListMetrics",
+      "cloudwatch:ListTagsForResource",
+    ]
+    resources = ["*"] # CloudWatch read actions don't support resource-level scoping
+  }
+
+  statement {
+    sid = "LogsReadOnly"
+    actions = [
+      "logs:DescribeLogGroups",
+      "logs:GetLogGroupFields",
+      "logs:StartQuery",
+      "logs:StopQuery",
+      "logs:GetQueryResults",
+      "logs:GetLogEvents",
+    ]
+    resources = ["*"]
+  }
+
+  statement {
+    sid = "XRayReadOnly"
+    actions = [
+      "xray:GetTraceSummaries",
+      "xray:BatchGetTraces",
+      "xray:GetTraceGraph",
+      "xray:GetServiceGraph",
+    ]
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_role_policy" "grafana_task_read_observability" {
+  name   = "${var.name_prefix}-grafana-task-read-observability"
+  role   = aws_iam_role.grafana_task.id
+  policy = data.aws_iam_policy_document.grafana_task_read_observability.json
+}
+
 # --- GitHub Actions OIDC deploy role -------------------------------------------------
 #
 # This AWS account is shared across the whole cohort (docs/adr/0002-region.md), and an
@@ -293,7 +384,7 @@ data "aws_iam_policy_document" "ci_deploy_permissions" {
       "ecr:UploadLayerPart",
       "ecr:CompleteLayerUpload",
     ]
-    resources = [aws_ecr_repository.pos.arn, aws_ecr_repository.payments.arn, aws_ecr_repository.commission.arn, aws_ecr_repository.web.arn]
+    resources = [aws_ecr_repository.pos.arn, aws_ecr_repository.payments.arn, aws_ecr_repository.commission.arn, aws_ecr_repository.web.arn, aws_ecr_repository.grafana.arn]
   }
 
   statement {
@@ -318,6 +409,7 @@ data "aws_iam_policy_document" "ci_deploy_permissions" {
       aws_iam_role.payments_exec.arn, aws_iam_role.payments_task.arn,
       aws_iam_role.commission_exec.arn, aws_iam_role.commission_task.arn,
       aws_iam_role.web_exec.arn, aws_iam_role.web_task.arn,
+      aws_iam_role.grafana_exec.arn, aws_iam_role.grafana_task.arn,
     ]
     condition {
       test     = "StringEquals"
@@ -427,6 +519,24 @@ data "aws_iam_policy_document" "ci_deploy_infra" {
     sid       = "TfstateKmsKey"
     actions   = ["kms:Decrypt", "kms:GenerateDataKey"]
     resources = ["arn:aws:kms:${var.region}:240462142849:key/0257835a-a3a1-487a-b740-79ea0b801eaf"]
+  }
+
+  # Scoped to just the one secret this stack creates (infra/ecs-grafana.tf) - Secrets
+  # Manager supports resource-level ARN scoping even for Create* actions, via the
+  # name-prefix wildcard pattern, so this never needs to widen to "secretsmanager:*"
+  # (unlike elasticache:*/sqs:*/scheduler:* above, which don't support that).
+  statement {
+    sid = "GrafanaAdminSecret"
+    actions = [
+      "secretsmanager:CreateSecret",
+      "secretsmanager:DeleteSecret",
+      "secretsmanager:DescribeSecret",
+      "secretsmanager:GetSecretValue",
+      "secretsmanager:PutSecretValue",
+      "secretsmanager:TagResource",
+      "secretsmanager:UntagResource",
+    ]
+    resources = ["arn:aws:secretsmanager:${var.region}:240462142849:secret:${var.name_prefix}-grafana-admin-password-*"]
   }
 }
 

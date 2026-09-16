@@ -1,0 +1,13 @@
+apiVersion: 1
+
+datasources:
+  - name: CloudWatch
+    type: cloudwatch
+    access: proxy
+    isDefault: true
+    jsonData:
+      # Instance-role auth: the task role (infra/ecs-grafana.tf) already carries scoped
+      # CloudWatch/X-Ray read permissions - no access key ever enters this container.
+      authType: default
+      defaultRegion: eu-west-1
+    editable: false

@@ -162,6 +162,30 @@ jobs:
           path: sbom-web.cdx.json
           retention-days: 90
 
+  grafana:
+    name: grafana — build image (no app code, dashboards/datasources are provisioning files)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build -f services/grafana/Dockerfile -t tillflow-grafana:${{ github.sha }} .
+
+      - name: Generate SBOM (CycloneDX)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: image
+          image-ref: tillflow-grafana:${{ github.sha }}
+          format: cyclonedx
+          output: sbom-grafana.cdx.json
+
+      - name: Upload SBOM as a build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-grafana-${{ github.sha }}
+          path: sbom-grafana.cdx.json
+          retention-days: 90
+
   terraform:
     name: infra — fmt + validate (both stacks; bootstrap stays hand-applied, see its own header)
     runs-on: ubuntu-latest

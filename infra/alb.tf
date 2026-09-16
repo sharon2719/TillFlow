@@ -194,3 +194,46 @@ resource "aws_lb_listener_rule" "web" {
     service = "web"
   }
 }
+
+resource "aws_lb_target_group" "grafana" {
+  name        = "${var.name_prefix}-grafana-tg"
+  port        = 3004
+  protocol    = "HTTP"
+  vpc_id      = aws_vpc.main.id
+  target_type = "ip"
+
+  health_check {
+    # Grafana runs with GF_SERVER_SERVE_FROM_SUB_PATH=true (infra/ecs-grafana.tf), so it
+    # expects the /grafana prefix on every request, including this direct health check.
+    path                = "/grafana/api/health"
+    healthy_threshold   = 2
+    unhealthy_threshold = 3
+    interval            = 15
+    timeout             = 5
+    matcher             = "200"
+  }
+
+  tags = {
+    service = "grafana"
+  }
+}
+
+resource "aws_lb_listener_rule" "grafana" {
+  listener_arn = aws_lb_listener.pos.arn
+  priority     = 40
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.grafana.arn
+  }
+
+  condition {
+    path_pattern {
+      values = ["/grafana/*"]
+    }
+  }
+
+  tags = {
+    service = "grafana"
+  }
+}
