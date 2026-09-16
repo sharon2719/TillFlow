@@ -31,7 +31,13 @@ function loadLocalEnvFile(): void {
     const eq = trimmed.indexOf("=");
     if (eq === -1) continue;
     const key = trimmed.slice(0, eq).trim();
-    const value = trimmed.slice(eq + 1).trim();
+    let value = trimmed.slice(eq + 1).trim();
+    // Strips one matching pair of surrounding quotes - the security credential is long
+    // enough that it's easy to instinctively wrap in quotes, but process.env values are
+    // never auto-unquoted the way a shell would do it.
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    }
     if (key && !(key in process.env)) process.env[key] = value;
   }
 }

@@ -8,17 +8,17 @@ this file is for things being knowingly left as-is right now.
 
 ## Daraja integration (see also services/_shared/src/daraja-adapter.ts)
 
-**`DarajaMpesaAdapter` exists and is wired into `services/payments`, but is not yet
-verified against the real sandbox.** OAuth token exchange, STK push/query, and B2C are
-implemented against Daraja's published API contract (endpoint paths, field names,
-timestamp/password format), and the STK/B2C callback routes in `payments.ts` now parse
-Daraja's real nested payload shape (`Body.stkCallback` / `Result`) instead of the
-simplified flat shape the routes used to accept. None of this has been run against a live
-Daraja sandbox app yet - that needs real credentials
-(`services/payments/.env.daraja.example` lists what's needed) and a run of
-`services/payments/scripts/test-daraja-sandbox.ts`. Owner: sharon2719. Revisit: before
-claiming this gap closed, actually run the sandbox script and record the result (success
-or the specific failure) in `evidence/payments-integrity/`.
+**`DarajaMpesaAdapter` is verified live for OAuth + STK push + STK query; B2C and the
+inbound callback path are not.** `evidence/payments-integrity/daraja-sandbox-verification-2026-09-16.md`
+records three real runs against the sandbox: a token exchange, an STK push that returned a
+real `ws_CO_...` CheckoutRequestID, and a query that correctly resolved it to a real
+terminal state (`resultCode 1037`, "DS timeout user cannot be reached" - expected, since the
+sandbox test number has no real device behind it). What's still unverified: a real B2C
+payment request, and a real inbound webhook from Daraja actually reaching
+`/api/v1/payments/callback` (the run above only exercised the query path, not Daraja
+calling us). Owner: sharon2719. Revisit: run B2C and an inbound-callback test once
+`services/payments` is deployed and reachable at `DARAJA_CALLBACK_BASE_URL` with a real
+STK push outstanding.
 
 **`DarajaMpesaAdapter.queryTransaction` can't resolve a B2C `conversationId`.** Daraja has
 a dedicated STK query endpoint keyed by `checkoutRequestId`, but no equivalent single call
