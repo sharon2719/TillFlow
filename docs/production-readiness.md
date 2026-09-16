@@ -99,7 +99,25 @@ Owner: sharon2719. Revisit: if this repo ever moves to a paid GitHub plan, add a
 reviewer to the `infra-apply` environment and switch the workflow back to triggering on
 push - both are small, contained changes.
 
-## Observability (see also docs/slo-error-budgets.md, docs/runbook.md)
+## Observability (see also docs/slo-error-budgets.md, docs/runbook.md, docs/recovery-drills.md)
+
+**`desired_count = 1` everywhere, kept deliberately.** `docs/recovery-drills.md`'s drill 1
+measured the real cost of this: a ~30-40s gap with no alarm on every task replacement,
+including every routine deploy, not just a failure. The missing alarm for that gap is now
+fixed (`aws_cloudwatch_metric_alarm.alb_elb_5xx`), but the gap itself — and the unhealthy-host
+alarm's 2-minute window staying longer than a fast self-healing event — remain. Decided to
+keep `desired_count = 1` rather than pay roughly double the Fargate cost per service to close
+a ~30-40s window, given this is a capstone with no real user traffic at stake. Owner:
+sharon2719. Revisit: before this ever carries real production traffic, or if the pos p95
+SLO miss in `docs/load-tests.md` is confirmed to be capacity-related rather than a one-off.
+
+**`pos` missed its own p95 latency SLO under concurrent load, cause not yet confirmed.**
+`docs/load-tests.md`'s run 1: 462.9ms p95 against a 400ms target, while CPU stayed under
+5%. Working hypothesis is event-loop contention with `pos`'s own DB-writing endpoints
+(single Fargate task, `desired_count = 1`), not the health check itself doing more work -
+same underlying capacity gap the recovery drill above found from the task-kill angle, now
+a second independent data point. Owner: sharon2719. Revisit: profile with X-Ray span
+timing to confirm the cause, then re-run the load test after any capacity change.
 
 **Alarms are built on ALB/RDS metrics, not the SLO table's actual numerators.**
 `infra/monitoring.tf`'s alarms answer "is the API up and responding reasonably fast" using
