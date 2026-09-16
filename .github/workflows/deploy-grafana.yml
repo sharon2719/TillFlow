@@ -103,7 +103,7 @@ jobs:
           API_ENDPOINT=$(aws apigatewayv2 get-apis \
             --query "Items[?Name=='${{ env.API_NAME }}'].ApiEndpoint" --output text)
           for i in $(seq 1 10); do
-            if curl -sf "$API_ENDPOINT/grafana/api/health" | grep -q '"database":"ok"'; then
+            if curl -sf "$API_ENDPOINT/grafana/api/health" | grep -Eq '"database":\s*"ok"'; then
               echo "Smoke test passed against $API_ENDPOINT/grafana/api/health"
               exit 0
             fi
