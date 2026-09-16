@@ -5,6 +5,7 @@ import { createPool, type Queryable } from "./db.js";
 import { healthRouter } from "./health.js";
 import { logger } from "./logger.js";
 import { createTenantsRouter } from "./routes/tenants.js";
+import { createSalesRouter } from "./sales.js";
 
 /**
  * App construction is kept separate from `index.ts`'s `listen()` call so tests can import
@@ -18,6 +19,7 @@ export function createApp(db: Queryable = createPool()) {
   app.use(pinoHttp({ logger }));
   app.use(healthRouter);
   app.use(createTenantsRouter(db));
+  app.use(createSalesRouter(db));
 
   app.get("/", (_req, res) => {
     res.json({ service: "pos", status: "ok" });
