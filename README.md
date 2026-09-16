@@ -3,7 +3,7 @@
 Multi-tenant POS + M-Pesa (Daraja) payments, on AWS ECS. Solo capstone build — see
 `docs/ownership.md` for why every area still names one DRI even with a group of one.
 
-## Status (2026-09-15)
+## Status (2026-09-16)
 
 **G1 (Platform) is done.** The full golden path is live in AWS: VPC, ECS cluster running
 `pos` behind an internal ALB, an ADOT sidecar per task, ECR, and a public API Gateway HTTP
@@ -17,13 +17,21 @@ environments aren't available on this plan for a private repo — see
 (`infra/scripts/audit_naming_tags.py`) has actually been run against live AWS, not just
 written.
 
-**G2 (Product) is underway.** RDS (PostgreSQL) is live — `pos`'s first real dependency,
-schema-per-service per `docs/adr/0003`. Tenant setup is built and tested: `POST /tenants`
-bootstraps a tenant + owner (returns an API key exactly once), `POST /attendants` and
-`POST`/`GET /tills` are API-key-authenticated and tenant-scoped, with an explicit
-cross-tenant isolation test proving the scoping actually holds (`docs/adr/0007`). Sale
-recording is next, then Payments/Commission/Web and ElastiCache/SQS/EventBridge — added
-once a service actually needs them, same pattern throughout.
+**G2 (Product) is functionally complete.** RDS (PostgreSQL) is live — `pos`'s first real
+dependency, schema-per-service per `docs/adr/0003`. Tenant setup: `POST /tenants` bootstraps
+a tenant + owner (returns an API key exactly once), `POST /attendants` and `POST`/`GET
+/tills` are API-key-authenticated and tenant-scoped, with an explicit cross-tenant isolation
+test proving the scoping actually holds (`docs/adr/0007`). Sale recording, Payments (STK +
+B2C, both directions, with real Daraja callback handling), and Commission (calls Payments
+over HTTP, never Daraja directly) are all live in AWS with their own ECS service, ALB
+routing, and deploy pipeline — proven end to end against the real deployed stack, not just
+pg-mem tests: create tenant → till → sale → STK push → reconciliation → commission close →
+real B2C payout, with idempotency holding on retries. `web` is a BFF + minimal
+server-rendered UI covering that same flow for an attendant/owner (sign in with an API key,
+create a till, record a sale, request payment, check its status, close commission) — it
+holds no database of its own, every fact it shows comes fresh from the other three services.
+ElastiCache/SQS/EventBridge aren't needed yet — added once a service actually needs them,
+same pattern throughout.
 
 This README updates as each gate lands, not written once at the end.
 
@@ -65,9 +73,9 @@ See the brief's required mono-repo layout, reproduced as-built in
 `docs/architecture.md`. Short version:
 
 ```
-services/    pos (tenant setup live), payments, commission, web, _shared
+services/    pos, payments, commission, web (all live in AWS), _shared
 infra/       Terraform: bootstrap (applied) + main stack (VPC/ECS/ALB/ECR/API GW/RDS — all applied)
-.github/     CI (checks + real terraform plan) + deploy-pos + infra-apply (manual-trigger)
+.github/     CI (checks + real terraform plan) + deploy-{pos,payments,commission,web} + infra-apply (manual-trigger)
 docs/        ownership, architecture, ADRs, SLOs, threat model, production-readiness log
 evidence/    per-area runtime proof (platform-delivery has a real naming/tag audit run)
 ```
@@ -75,8 +83,9 @@ evidence/    per-area runtime proof (platform-delivery has a real naming/tag aud
 ## Gates
 
 Tracked outside this repo for now; see `docs/ownership.md` and the ADRs for what's decided.
-G0 (decide) and G1 (Terraform + golden path) are done. G2 (product): tenant setup is live
-and tested; sale recording, Daraja/Payments, and Commission are next.
+G0 (decide), G1 (Terraform + golden path), and G2 (product) are done — tenant setup, sale
+recording, Payments, Commission, and web's BFF are all live in AWS and proven end to end.
+G3 (operate) is next.
 
 ## Cost / cleanup
 
