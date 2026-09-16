@@ -351,9 +351,12 @@ data "aws_iam_policy_document" "ci_deploy_infra" {
       "ecr:*",
       "logs:*",
       "apigateway:*",
-      "rds:*",        # added for infra/rds.tf (G2) - didn't exist when this statement was first written
-      "cloudwatch:*", # added for infra/monitoring.tf (G3) - alarms + dashboard
-      "sns:*",        # added for infra/monitoring.tf (G3) - alarm topic + email subscription
+      "rds:*",         # added for infra/rds.tf (G2) - didn't exist when this statement was first written
+      "cloudwatch:*",  # added for infra/monitoring.tf (G3) - alarms + dashboard
+      "sns:*",         # added for infra/monitoring.tf (G3) - alarm topic + email subscription
+      "elasticache:*", # added for infra/async.tf (G1) - Redis, no consumer wired up yet
+      "sqs:*",         # added for infra/async.tf (G1) - commission-close queue + DLQ
+      "scheduler:*",   # added for infra/async.tf (G1) - daily commission-close trigger
     ]
     resources = ["*"]
     condition {
