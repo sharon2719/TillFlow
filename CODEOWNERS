@@ -1,11 +1,12 @@
-# TillFlow — solo build. One DRI across every path.
-# See docs/ownership.md for the area-by-area rationale.
+# TillFlow — two-person build. One DRI per path, per docs/ownership.md.
+# This split is a proposal pending direct confirmation with Gatchang-nyawargak - see that
+# doc's note before treating it as final.
 
 *                           @sharon2719
 
 services/pos/               @sharon2719
-services/payments/          @sharon2719
-services/commission/        @sharon2719
+services/payments/          @Gatchang-nyawargak
+services/commission/        @Gatchang-nyawargak
 services/web/               @sharon2719
 services/_shared/           @sharon2719
 infra/                      @sharon2719
