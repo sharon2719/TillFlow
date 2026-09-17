@@ -1,0 +1,54 @@
+
+         /\      Grafana   /‾‾/  
+    /\  /  \     |\  __   /  /   
+   /  \/    \    | |/ /  /   ‾‾\ 
+  /          \   |   (  |  (‾)  |
+ / __________ \  |_|\_\  \_____/ 
+
+
+     execution: local
+        script: load-tests/k6-daraja-contract.js
+        output: -
+
+     scenarios: (100.00%) 1 scenario, 1 max VUs, 10m30s max duration (incl. graceful stop):
+              * contract: 1 iterations shared among 1 VUs (maxDuration: 10m0s, exec: daraja_stk_contract, gracefulStop: 30s)
+
+
+running (00m01.0s), 1/1 VUs, 0 complete and 0 interrupted iterations
+contract   [   0% ] 1 VUs  00m01.0s/10m0s  0/1 shared iters
+
+running (00m02.0s), 1/1 VUs, 0 complete and 0 interrupted iterations
+contract   [   0% ] 1 VUs  00m02.0s/10m0s  0/1 shared iters
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 3       1.443221/s
+    checks_succeeded...: 100.00% 3 out of 3
+    checks_failed......: 0.00%   0 out of 3
+
+    ✓ accepted (201)
+    ✓ real Daraja checkoutRequestId (ws_CO_ prefix, not fake-checkout-)
+    ✓ status is pending (never a decline on acceptance)
+
+    HTTP
+    http_req_duration..............: avg=1.49s min=1.49s med=1.49s max=1.49s p(90)=1.49s p(95)=1.49s
+      { expected_response:true }...: avg=1.49s min=1.49s med=1.49s max=1.49s p(90)=1.49s p(95)=1.49s
+    http_req_failed................: 0.00%  0 out of 1
+    http_reqs......................: 1      0.481074/s
+
+    EXECUTION
+    iteration_duration.............: avg=2.07s min=2.07s med=2.07s max=2.07s p(90)=2.07s p(95)=2.07s
+    iterations.....................: 1      0.481074/s
+    vus............................: 1      min=1      max=1
+    vus_max........................: 1      min=1      max=1
+
+    NETWORK
+    data_received..................: 5.1 kB 2.4 kB/s
+    data_sent......................: 2.1 kB 1.0 kB/s
+
+
+
+
+running (00m02.1s), 0/1 VUs, 1 complete and 0 interrupted iterations
+contract ✓ [ 100% ] 1 VUs  00m02.1s/10m0s  1/1 shared iters

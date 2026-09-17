@@ -5,126 +5,776 @@
   "schemaVersion": 39,
   "version": 1,
   "editable": true,
-  "time": { "from": "now-1h", "to": "now" },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
   "templating": {
     "list": [
       {
         "name": "window",
         "type": "custom",
         "query": "5m,1h,28d",
-        "current": { "text": "1h", "value": "1h" },
+        "current": {
+          "text": "1h",
+          "value": "1h"
+        },
         "label": "Window"
       }
     ]
   },
-  "annotations": { "list": [] },
+  "annotations": {
+    "list": []
+  },
   "panels": [
     {
       "type": "row",
       "title": "RED - request rate, errors, duration",
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
       "id": 1
     },
     {
       "type": "timeseries",
       "title": "Request rate (per target group)",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 1 },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 1
+      },
       "id": 2,
-      "datasource": { "type": "cloudwatch", "uid": "CloudWatch" },
-      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "cloudwatch"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
       "targets": [
-        { "refId": "pos", "namespace": "AWS/ApplicationELB", "metricName": "RequestCountPerTarget", "statistic": "Sum", "dimensions": { "TargetGroup": "devops-g5-pos-tg" }, "region": "eu-west-1", "label": "pos" },
-        { "refId": "payments", "namespace": "AWS/ApplicationELB", "metricName": "RequestCountPerTarget", "statistic": "Sum", "dimensions": { "TargetGroup": "devops-g5-payments-tg" }, "region": "eu-west-1", "label": "payments" },
-        { "refId": "commission", "namespace": "AWS/ApplicationELB", "metricName": "RequestCountPerTarget", "statistic": "Sum", "dimensions": { "TargetGroup": "devops-g5-commission-tg" }, "region": "eu-west-1", "label": "commission" },
-        { "refId": "web", "namespace": "AWS/ApplicationELB", "metricName": "RequestCountPerTarget", "statistic": "Sum", "dimensions": { "TargetGroup": "devops-g5-web-tg" }, "region": "eu-west-1", "label": "web" }
+        {
+          "refId": "pos",
+          "namespace": "AWS/ApplicationELB",
+          "metricName": "RequestCountPerTarget",
+          "statistic": "Sum",
+          "dimensions": {
+            "LoadBalancer": "app/devops-g5-alb/e051239450c15c98",
+            "TargetGroup": "targetgroup/devops-g5-pos-tg/82b63f0b888ec77f"
+          },
+          "region": "eu-west-1",
+          "label": "pos"
+        },
+        {
+          "refId": "payments",
+          "namespace": "AWS/ApplicationELB",
+          "metricName": "RequestCountPerTarget",
+          "statistic": "Sum",
+          "dimensions": {
+            "LoadBalancer": "app/devops-g5-alb/e051239450c15c98",
+            "TargetGroup": "targetgroup/devops-g5-payments-tg/eeb80d20f4422fc5"
+          },
+          "region": "eu-west-1",
+          "label": "payments"
+        },
+        {
+          "refId": "commission",
+          "namespace": "AWS/ApplicationELB",
+          "metricName": "RequestCountPerTarget",
+          "statistic": "Sum",
+          "dimensions": {
+            "LoadBalancer": "app/devops-g5-alb/e051239450c15c98",
+            "TargetGroup": "targetgroup/devops-g5-commission-tg/36e9c030589d29da"
+          },
+          "region": "eu-west-1",
+          "label": "commission"
+        },
+        {
+          "refId": "web",
+          "namespace": "AWS/ApplicationELB",
+          "metricName": "RequestCountPerTarget",
+          "statistic": "Sum",
+          "dimensions": {
+            "LoadBalancer": "app/devops-g5-alb/e051239450c15c98",
+            "TargetGroup": "targetgroup/devops-g5-web-tg/56a9680a30a14ec8"
+          },
+          "region": "eu-west-1",
+          "label": "web"
+        }
       ]
     },
     {
       "type": "timeseries",
       "title": "Errors - 5xx count (target-level + ALB-level)",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 1 },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 1
+      },
       "id": 3,
-      "datasource": { "type": "cloudwatch", "uid": "CloudWatch" },
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "cloudwatch"
+      },
       "targets": [
-        { "refId": "pos", "namespace": "AWS/ApplicationELB", "metricName": "HTTPCode_Target_5XX_Count", "statistic": "Sum", "dimensions": { "TargetGroup": "devops-g5-pos-tg" }, "region": "eu-west-1", "label": "pos" },
-        { "refId": "payments", "namespace": "AWS/ApplicationELB", "metricName": "HTTPCode_Target_5XX_Count", "statistic": "Sum", "dimensions": { "TargetGroup": "devops-g5-payments-tg" }, "region": "eu-west-1", "label": "payments" },
-        { "refId": "commission", "namespace": "AWS/ApplicationELB", "metricName": "HTTPCode_Target_5XX_Count", "statistic": "Sum", "dimensions": { "TargetGroup": "devops-g5-commission-tg" }, "region": "eu-west-1", "label": "commission" },
-        { "refId": "web", "namespace": "AWS/ApplicationELB", "metricName": "HTTPCode_Target_5XX_Count", "statistic": "Sum", "dimensions": { "TargetGroup": "devops-g5-web-tg" }, "region": "eu-west-1", "label": "web" },
-        { "refId": "elb", "namespace": "AWS/ApplicationELB", "metricName": "HTTPCode_ELB_5XX_Count", "statistic": "Sum", "region": "eu-west-1", "label": "ALB itself (see docs/recovery-drills.md)" }
+        {
+          "refId": "pos",
+          "namespace": "AWS/ApplicationELB",
+          "metricName": "HTTPCode_Target_5XX_Count",
+          "statistic": "Sum",
+          "dimensions": {
+            "LoadBalancer": "app/devops-g5-alb/e051239450c15c98",
+            "TargetGroup": "targetgroup/devops-g5-pos-tg/82b63f0b888ec77f"
+          },
+          "region": "eu-west-1",
+          "label": "pos"
+        },
+        {
+          "refId": "payments",
+          "namespace": "AWS/ApplicationELB",
+          "metricName": "HTTPCode_Target_5XX_Count",
+          "statistic": "Sum",
+          "dimensions": {
+            "LoadBalancer": "app/devops-g5-alb/e051239450c15c98",
+            "TargetGroup": "targetgroup/devops-g5-payments-tg/eeb80d20f4422fc5"
+          },
+          "region": "eu-west-1",
+          "label": "payments"
+        },
+        {
+          "refId": "commission",
+          "namespace": "AWS/ApplicationELB",
+          "metricName": "HTTPCode_Target_5XX_Count",
+          "statistic": "Sum",
+          "dimensions": {
+            "LoadBalancer": "app/devops-g5-alb/e051239450c15c98",
+            "TargetGroup": "targetgroup/devops-g5-commission-tg/36e9c030589d29da"
+          },
+          "region": "eu-west-1",
+          "label": "commission"
+        },
+        {
+          "refId": "web",
+          "namespace": "AWS/ApplicationELB",
+          "metricName": "HTTPCode_Target_5XX_Count",
+          "statistic": "Sum",
+          "dimensions": {
+            "LoadBalancer": "app/devops-g5-alb/e051239450c15c98",
+            "TargetGroup": "targetgroup/devops-g5-web-tg/56a9680a30a14ec8"
+          },
+          "region": "eu-west-1",
+          "label": "web"
+        },
+        {
+          "refId": "elb",
+          "namespace": "AWS/ApplicationELB",
+          "metricName": "HTTPCode_ELB_5XX_Count",
+          "statistic": "Sum",
+          "region": "eu-west-1",
+          "label": "ALB itself (see docs/recovery-drills.md)"
+        }
       ]
     },
     {
       "type": "timeseries",
       "title": "Duration - p95 response time vs SLO target (docs/slo-error-budgets.md: pos 400ms, web 500ms)",
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 9 },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 9
+      },
       "id": 4,
-      "datasource": { "type": "cloudwatch", "uid": "CloudWatch" },
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "cloudwatch"
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "ms",
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "green", "value": null },
-              { "color": "red", "value": 400 }
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 400
+              }
             ]
           }
         },
         "overrides": []
       },
       "targets": [
-        { "refId": "pos", "namespace": "AWS/ApplicationELB", "metricName": "TargetResponseTime", "statistic": "p95", "dimensions": { "TargetGroup": "devops-g5-pos-tg" }, "region": "eu-west-1", "label": "pos (SLO: 400ms)" },
-        { "refId": "payments", "namespace": "AWS/ApplicationELB", "metricName": "TargetResponseTime", "statistic": "p95", "dimensions": { "TargetGroup": "devops-g5-payments-tg" }, "region": "eu-west-1", "label": "payments" },
-        { "refId": "commission", "namespace": "AWS/ApplicationELB", "metricName": "TargetResponseTime", "statistic": "p95", "dimensions": { "TargetGroup": "devops-g5-commission-tg" }, "region": "eu-west-1", "label": "commission" },
-        { "refId": "web", "namespace": "AWS/ApplicationELB", "metricName": "TargetResponseTime", "statistic": "p95", "dimensions": { "TargetGroup": "devops-g5-web-tg" }, "region": "eu-west-1", "label": "web (SLO: 500ms)" }
+        {
+          "refId": "pos",
+          "namespace": "AWS/ApplicationELB",
+          "metricName": "TargetResponseTime",
+          "statistic": "p95",
+          "dimensions": {
+            "LoadBalancer": "app/devops-g5-alb/e051239450c15c98",
+            "TargetGroup": "targetgroup/devops-g5-pos-tg/82b63f0b888ec77f"
+          },
+          "region": "eu-west-1",
+          "label": "pos (SLO: 400ms)"
+        },
+        {
+          "refId": "payments",
+          "namespace": "AWS/ApplicationELB",
+          "metricName": "TargetResponseTime",
+          "statistic": "p95",
+          "dimensions": {
+            "LoadBalancer": "app/devops-g5-alb/e051239450c15c98",
+            "TargetGroup": "targetgroup/devops-g5-payments-tg/eeb80d20f4422fc5"
+          },
+          "region": "eu-west-1",
+          "label": "payments"
+        },
+        {
+          "refId": "commission",
+          "namespace": "AWS/ApplicationELB",
+          "metricName": "TargetResponseTime",
+          "statistic": "p95",
+          "dimensions": {
+            "LoadBalancer": "app/devops-g5-alb/e051239450c15c98",
+            "TargetGroup": "targetgroup/devops-g5-commission-tg/36e9c030589d29da"
+          },
+          "region": "eu-west-1",
+          "label": "commission"
+        },
+        {
+          "refId": "web",
+          "namespace": "AWS/ApplicationELB",
+          "metricName": "TargetResponseTime",
+          "statistic": "p95",
+          "dimensions": {
+            "LoadBalancer": "app/devops-g5-alb/e051239450c15c98",
+            "TargetGroup": "targetgroup/devops-g5-web-tg/56a9680a30a14ec8"
+          },
+          "region": "eu-west-1",
+          "label": "web (SLO: 500ms)"
+        }
       ]
     },
     {
       "type": "row",
       "title": "Saturation - healthy hosts + the shared RDS instance",
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 17 },
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 32
+      },
       "id": 5
     },
     {
       "type": "timeseries",
       "title": "Healthy hosts per service (desired_count=1 everywhere - see docs/production-readiness.md)",
-      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 18 },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 33
+      },
       "id": 6,
-      "datasource": { "type": "cloudwatch", "uid": "CloudWatch" },
-      "fieldConfig": { "defaults": { "min": 0, "max": 2 }, "overrides": [] },
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "cloudwatch"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "max": 2
+        },
+        "overrides": []
+      },
       "targets": [
-        { "refId": "pos", "namespace": "AWS/ApplicationELB", "metricName": "HealthyHostCount", "statistic": "Average", "dimensions": { "TargetGroup": "devops-g5-pos-tg" }, "region": "eu-west-1", "label": "pos" },
-        { "refId": "payments", "namespace": "AWS/ApplicationELB", "metricName": "HealthyHostCount", "statistic": "Average", "dimensions": { "TargetGroup": "devops-g5-payments-tg" }, "region": "eu-west-1", "label": "payments" },
-        { "refId": "commission", "namespace": "AWS/ApplicationELB", "metricName": "HealthyHostCount", "statistic": "Average", "dimensions": { "TargetGroup": "devops-g5-commission-tg" }, "region": "eu-west-1", "label": "commission" },
-        { "refId": "web", "namespace": "AWS/ApplicationELB", "metricName": "HealthyHostCount", "statistic": "Average", "dimensions": { "TargetGroup": "devops-g5-web-tg" }, "region": "eu-west-1", "label": "web" }
+        {
+          "refId": "pos",
+          "namespace": "AWS/ApplicationELB",
+          "metricName": "HealthyHostCount",
+          "statistic": "Average",
+          "dimensions": {
+            "LoadBalancer": "app/devops-g5-alb/e051239450c15c98",
+            "TargetGroup": "targetgroup/devops-g5-pos-tg/82b63f0b888ec77f"
+          },
+          "region": "eu-west-1",
+          "label": "pos"
+        },
+        {
+          "refId": "payments",
+          "namespace": "AWS/ApplicationELB",
+          "metricName": "HealthyHostCount",
+          "statistic": "Average",
+          "dimensions": {
+            "LoadBalancer": "app/devops-g5-alb/e051239450c15c98",
+            "TargetGroup": "targetgroup/devops-g5-payments-tg/eeb80d20f4422fc5"
+          },
+          "region": "eu-west-1",
+          "label": "payments"
+        },
+        {
+          "refId": "commission",
+          "namespace": "AWS/ApplicationELB",
+          "metricName": "HealthyHostCount",
+          "statistic": "Average",
+          "dimensions": {
+            "LoadBalancer": "app/devops-g5-alb/e051239450c15c98",
+            "TargetGroup": "targetgroup/devops-g5-commission-tg/36e9c030589d29da"
+          },
+          "region": "eu-west-1",
+          "label": "commission"
+        },
+        {
+          "refId": "web",
+          "namespace": "AWS/ApplicationELB",
+          "metricName": "HealthyHostCount",
+          "statistic": "Average",
+          "dimensions": {
+            "LoadBalancer": "app/devops-g5-alb/e051239450c15c98",
+            "TargetGroup": "targetgroup/devops-g5-web-tg/56a9680a30a14ec8"
+          },
+          "region": "eu-west-1",
+          "label": "web"
+        }
       ]
     },
     {
       "type": "timeseries",
       "title": "RDS - CPU %, connections, free storage (shared by pos/payments/commission)",
-      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 18 },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 33
+      },
       "id": 7,
-      "datasource": { "type": "cloudwatch", "uid": "CloudWatch" },
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "cloudwatch"
+      },
       "targets": [
-        { "refId": "cpu", "namespace": "AWS/RDS", "metricName": "CPUUtilization", "statistic": "Average", "dimensions": { "DBInstanceIdentifier": "devops-g5-db" }, "region": "eu-west-1", "label": "CPU %" },
-        { "refId": "conn", "namespace": "AWS/RDS", "metricName": "DatabaseConnections", "statistic": "Average", "dimensions": { "DBInstanceIdentifier": "devops-g5-db" }, "region": "eu-west-1", "label": "connections" }
+        {
+          "refId": "cpu",
+          "namespace": "AWS/RDS",
+          "metricName": "CPUUtilization",
+          "statistic": "Average",
+          "dimensions": {
+            "DBInstanceIdentifier": "devops-g5-db"
+          },
+          "region": "eu-west-1",
+          "label": "CPU %"
+        },
+        {
+          "refId": "conn",
+          "namespace": "AWS/RDS",
+          "metricName": "DatabaseConnections",
+          "statistic": "Average",
+          "dimensions": {
+            "DBInstanceIdentifier": "devops-g5-db"
+          },
+          "region": "eu-west-1",
+          "label": "connections"
+        }
       ]
     },
     {
       "type": "row",
       "title": "Business signal - async platform (infra/async.tf, no consumer wired up yet)",
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 25 },
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 40
+      },
       "id": 8
     },
     {
       "type": "timeseries",
       "title": "Commission-close queue depth (visible message count) - proves the EventBridge schedule fires, see docs/production-readiness.md for the missing consumer",
-      "gridPos": { "h": 7, "w": 24, "x": 0, "y": 26 },
+      "gridPos": {
+        "h": 7,
+        "w": 24,
+        "x": 0,
+        "y": 41
+      },
       "id": 9,
-      "datasource": { "type": "cloudwatch", "uid": "CloudWatch" },
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "cloudwatch"
+      },
       "targets": [
-        { "refId": "visible", "namespace": "AWS/SQS", "metricName": "ApproximateNumberOfMessagesVisible", "statistic": "Maximum", "dimensions": { "QueueName": "devops-g5-commission-close" }, "region": "eu-west-1", "label": "commission-close queue depth" },
-        { "refId": "dlq", "namespace": "AWS/SQS", "metricName": "ApproximateNumberOfMessagesVisible", "statistic": "Maximum", "dimensions": { "QueueName": "devops-g5-commission-close-dlq" }, "region": "eu-west-1", "label": "DLQ depth (should stay 0)" }
+        {
+          "refId": "visible",
+          "namespace": "AWS/SQS",
+          "metricName": "ApproximateNumberOfMessagesVisible",
+          "statistic": "Maximum",
+          "dimensions": {
+            "QueueName": "devops-g5-commission-close"
+          },
+          "region": "eu-west-1",
+          "label": "commission-close queue depth"
+        },
+        {
+          "refId": "dlq",
+          "namespace": "AWS/SQS",
+          "metricName": "ApproximateNumberOfMessagesVisible",
+          "statistic": "Maximum",
+          "dimensions": {
+            "QueueName": "devops-g5-commission-close-dlq"
+          },
+          "region": "eu-west-1",
+          "label": "DLQ depth (should stay 0)"
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "Error budgets (docs/slo-error-budgets.md) - burn rate & remaining",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 17
+      },
+      "id": 12
+    },
+    {
+      "type": "timeseries",
+      "title": "Error-budget burn rate by service (1.0 = consuming budget at exactly the allowed rate)",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 18
+      },
+      "id": 10,
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "cloudwatch"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 3
+              },
+              {
+                "color": "red",
+                "value": 14.4
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "pos_errors",
+          "namespace": "AWS/ApplicationELB",
+          "metricName": "HTTPCode_Target_5XX_Count",
+          "statistic": "Sum",
+          "dimensions": {
+            "LoadBalancer": "app/devops-g5-alb/e051239450c15c98",
+            "TargetGroup": "targetgroup/devops-g5-pos-tg/82b63f0b888ec77f"
+          },
+          "region": "eu-west-1",
+          "visible": false
+        },
+        {
+          "refId": "pos_requests",
+          "namespace": "AWS/ApplicationELB",
+          "metricName": "RequestCountPerTarget",
+          "statistic": "Sum",
+          "dimensions": {
+            "LoadBalancer": "app/devops-g5-alb/e051239450c15c98",
+            "TargetGroup": "targetgroup/devops-g5-pos-tg/82b63f0b888ec77f"
+          },
+          "region": "eu-west-1",
+          "visible": false
+        },
+        {
+          "refId": "pos_burn",
+          "expression": "IF(FILL(pos_requests,0)>0, (FILL(pos_errors,0)/pos_requests*100)/0.1, 0)",
+          "label": "pos burn rate (x budget)",
+          "returnData": true
+        },
+        {
+          "refId": "web_errors",
+          "namespace": "AWS/ApplicationELB",
+          "metricName": "HTTPCode_Target_5XX_Count",
+          "statistic": "Sum",
+          "dimensions": {
+            "LoadBalancer": "app/devops-g5-alb/e051239450c15c98",
+            "TargetGroup": "targetgroup/devops-g5-web-tg/56a9680a30a14ec8"
+          },
+          "region": "eu-west-1",
+          "visible": false
+        },
+        {
+          "refId": "web_requests",
+          "namespace": "AWS/ApplicationELB",
+          "metricName": "RequestCountPerTarget",
+          "statistic": "Sum",
+          "dimensions": {
+            "LoadBalancer": "app/devops-g5-alb/e051239450c15c98",
+            "TargetGroup": "targetgroup/devops-g5-web-tg/56a9680a30a14ec8"
+          },
+          "region": "eu-west-1",
+          "visible": false
+        },
+        {
+          "refId": "web_burn",
+          "expression": "IF(FILL(web_requests,0)>0, (FILL(web_errors,0)/web_requests*100)/0.1, 0)",
+          "label": "web burn rate (x budget)",
+          "returnData": true
+        },
+        {
+          "refId": "payments_errors",
+          "namespace": "AWS/ApplicationELB",
+          "metricName": "HTTPCode_Target_5XX_Count",
+          "statistic": "Sum",
+          "dimensions": {
+            "LoadBalancer": "app/devops-g5-alb/e051239450c15c98",
+            "TargetGroup": "targetgroup/devops-g5-payments-tg/eeb80d20f4422fc5"
+          },
+          "region": "eu-west-1",
+          "visible": false
+        },
+        {
+          "refId": "payments_requests",
+          "namespace": "AWS/ApplicationELB",
+          "metricName": "RequestCountPerTarget",
+          "statistic": "Sum",
+          "dimensions": {
+            "LoadBalancer": "app/devops-g5-alb/e051239450c15c98",
+            "TargetGroup": "targetgroup/devops-g5-payments-tg/eeb80d20f4422fc5"
+          },
+          "region": "eu-west-1",
+          "visible": false
+        },
+        {
+          "refId": "payments_burn",
+          "expression": "IF(FILL(payments_requests,0)>0, (FILL(payments_errors,0)/payments_requests*100)/0.5, 0)",
+          "label": "payments burn rate (x budget)",
+          "returnData": true
+        },
+        {
+          "refId": "commission_errors",
+          "namespace": "AWS/ApplicationELB",
+          "metricName": "HTTPCode_Target_5XX_Count",
+          "statistic": "Sum",
+          "dimensions": {
+            "LoadBalancer": "app/devops-g5-alb/e051239450c15c98",
+            "TargetGroup": "targetgroup/devops-g5-commission-tg/36e9c030589d29da"
+          },
+          "region": "eu-west-1",
+          "visible": false
+        },
+        {
+          "refId": "commission_requests",
+          "namespace": "AWS/ApplicationELB",
+          "metricName": "RequestCountPerTarget",
+          "statistic": "Sum",
+          "dimensions": {
+            "LoadBalancer": "app/devops-g5-alb/e051239450c15c98",
+            "TargetGroup": "targetgroup/devops-g5-commission-tg/36e9c030589d29da"
+          },
+          "region": "eu-west-1",
+          "visible": false
+        },
+        {
+          "refId": "commission_burn",
+          "expression": "IF(FILL(commission_requests,0)>0, (FILL(commission_errors,0)/commission_requests*100)/1.0, 0)",
+          "label": "commission burn rate (x budget)",
+          "returnData": true
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "28-day error budget remaining by service (100% = no burn at all; can go negative if already exhausted)",
+      "gridPos": {
+        "h": 6,
+        "w": 24,
+        "x": 0,
+        "y": 26
+      },
+      "id": 11,
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "cloudwatch"
+      },
+      "timeFrom": "28d",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 25
+              },
+              {
+                "color": "green",
+                "value": 50
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "pos_errors28",
+          "namespace": "AWS/ApplicationELB",
+          "metricName": "HTTPCode_Target_5XX_Count",
+          "statistic": "Sum",
+          "period": 2419200,
+          "dimensions": {
+            "LoadBalancer": "app/devops-g5-alb/e051239450c15c98",
+            "TargetGroup": "targetgroup/devops-g5-pos-tg/82b63f0b888ec77f"
+          },
+          "region": "eu-west-1",
+          "visible": false
+        },
+        {
+          "refId": "pos_requests28",
+          "namespace": "AWS/ApplicationELB",
+          "metricName": "RequestCountPerTarget",
+          "statistic": "Sum",
+          "period": 2419200,
+          "dimensions": {
+            "LoadBalancer": "app/devops-g5-alb/e051239450c15c98",
+            "TargetGroup": "targetgroup/devops-g5-pos-tg/82b63f0b888ec77f"
+          },
+          "region": "eu-west-1",
+          "visible": false
+        },
+        {
+          "refId": "pos_remaining",
+          "expression": "IF(FILL(pos_requests28,0)>0, 100 - ((FILL(pos_errors28,0)/pos_requests28*100)/0.1*100), 100)",
+          "label": "pos",
+          "returnData": true
+        },
+        {
+          "refId": "web_errors28",
+          "namespace": "AWS/ApplicationELB",
+          "metricName": "HTTPCode_Target_5XX_Count",
+          "statistic": "Sum",
+          "period": 2419200,
+          "dimensions": {
+            "LoadBalancer": "app/devops-g5-alb/e051239450c15c98",
+            "TargetGroup": "targetgroup/devops-g5-web-tg/56a9680a30a14ec8"
+          },
+          "region": "eu-west-1",
+          "visible": false
+        },
+        {
+          "refId": "web_requests28",
+          "namespace": "AWS/ApplicationELB",
+          "metricName": "RequestCountPerTarget",
+          "statistic": "Sum",
+          "period": 2419200,
+          "dimensions": {
+            "LoadBalancer": "app/devops-g5-alb/e051239450c15c98",
+            "TargetGroup": "targetgroup/devops-g5-web-tg/56a9680a30a14ec8"
+          },
+          "region": "eu-west-1",
+          "visible": false
+        },
+        {
+          "refId": "web_remaining",
+          "expression": "IF(FILL(web_requests28,0)>0, 100 - ((FILL(web_errors28,0)/web_requests28*100)/0.1*100), 100)",
+          "label": "web",
+          "returnData": true
+        },
+        {
+          "refId": "payments_errors28",
+          "namespace": "AWS/ApplicationELB",
+          "metricName": "HTTPCode_Target_5XX_Count",
+          "statistic": "Sum",
+          "period": 2419200,
+          "dimensions": {
+            "LoadBalancer": "app/devops-g5-alb/e051239450c15c98",
+            "TargetGroup": "targetgroup/devops-g5-payments-tg/eeb80d20f4422fc5"
+          },
+          "region": "eu-west-1",
+          "visible": false
+        },
+        {
+          "refId": "payments_requests28",
+          "namespace": "AWS/ApplicationELB",
+          "metricName": "RequestCountPerTarget",
+          "statistic": "Sum",
+          "period": 2419200,
+          "dimensions": {
+            "LoadBalancer": "app/devops-g5-alb/e051239450c15c98",
+            "TargetGroup": "targetgroup/devops-g5-payments-tg/eeb80d20f4422fc5"
+          },
+          "region": "eu-west-1",
+          "visible": false
+        },
+        {
+          "refId": "payments_remaining",
+          "expression": "IF(FILL(payments_requests28,0)>0, 100 - ((FILL(payments_errors28,0)/payments_requests28*100)/0.5*100), 100)",
+          "label": "payments",
+          "returnData": true
+        },
+        {
+          "refId": "commission_errors28",
+          "namespace": "AWS/ApplicationELB",
+          "metricName": "HTTPCode_Target_5XX_Count",
+          "statistic": "Sum",
+          "period": 2419200,
+          "dimensions": {
+            "LoadBalancer": "app/devops-g5-alb/e051239450c15c98",
+            "TargetGroup": "targetgroup/devops-g5-commission-tg/36e9c030589d29da"
+          },
+          "region": "eu-west-1",
+          "visible": false
+        },
+        {
+          "refId": "commission_requests28",
+          "namespace": "AWS/ApplicationELB",
+          "metricName": "RequestCountPerTarget",
+          "statistic": "Sum",
+          "period": 2419200,
+          "dimensions": {
+            "LoadBalancer": "app/devops-g5-alb/e051239450c15c98",
+            "TargetGroup": "targetgroup/devops-g5-commission-tg/36e9c030589d29da"
+          },
+          "region": "eu-west-1",
+          "visible": false
+        },
+        {
+          "refId": "commission_remaining",
+          "expression": "IF(FILL(commission_requests28,0)>0, 100 - ((FILL(commission_errors28,0)/commission_requests28*100)/1.0*100), 100)",
+          "label": "commission",
+          "returnData": true
+        }
       ]
     }
   ]
