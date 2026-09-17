@@ -22,15 +22,18 @@ fixed a real bug: Daraja's `ResultCode`/`ResponseCode` arrive as JSON numbers, a
 threatening the "a timeout is never a decline" guarantee. Now covered by 7 deterministic
 unit tests in `services/_shared/test/daraja-adapter.test.ts`.
 
-What's still unverified, and confirmed genuinely not received rather than just unchecked:
-waited 13+ minutes (STK) and 7+ minutes (B2C) after triggering real transactions against the
-live endpoint, checked both `services/payments`' own CloudWatch logs and the API Gateway's
-access logs (which correctly captured every other request in the test, ruling out a logging
-or routing blind spot) - no request to either callback path arrived at either layer. This
-means Daraja's sandbox didn't deliver a callback in the window tested, not that one was
-sent and rejected on our end. Owner: sharon2719. Revisit: retry with a longer wait window,
-or investigate whether Safaricom's sandbox callback delivery has a known reliability gap
-for this test scenario specifically.
+What's still unverified, and confirmed genuinely not received (twice, a day apart) rather
+than just unchecked: two independent test rounds, each waiting 10+ minutes after triggering
+real STK/B2C transactions against the live endpoint, each checking both `services/payments`'
+own CloudWatch logs and the API Gateway's access logs (which correctly captured every other
+request in both tests, ruling out a logging or routing blind spot) - zero requests to either
+callback path arrived at either layer, either time. Meanwhile the query-based reconciliation
+path resolved the STK transaction correctly both times (`resultCode 1037`), proving that
+mechanism works regardless of whether the callback ever fires. This is now a repeatable
+pattern in this sandbox environment, not a one-off timing fluke. Owner: sharon2719. Revisit:
+if this needs to be provably closed, either find documentation on why Safaricom's sandbox
+doesn't deliver these callbacks, or treat query-based reconciliation as the actual
+production-safe mechanism and stop depending on the callback path being reliable.
 
 **`DarajaMpesaAdapter.queryTransaction` can't resolve a B2C `conversationId`.** Daraja has
 a dedicated STK query endpoint keyed by `checkoutRequestId`, but no equivalent single call

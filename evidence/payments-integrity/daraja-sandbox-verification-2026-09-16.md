@@ -116,6 +116,24 @@ elsewhere as sometimes slow or unreliable about callback delivery for the "custo
 unreachable" test scenario specifically; it may simply need longer than tested here; or
 there's a delivery-side condition not yet identified. Not confirmed which.
 
+## Run 7 — repeated the next day, same result
+
+2026-09-17: a fresh STK push (`ws_CO_170920261053566708374149`) and a fresh B2C payout
+(`AG_20260917_010010030nb0pgu3io07`) against the same live endpoint, checked at ~3 minutes
+and again at ~11 minutes. Same outcome as run 6: zero requests to either callback path in
+either `services/payments`' logs or the API Gateway access logs, both times. The STK
+transaction correctly reconciled via query in the meantime (`resultCode 1037, "No response
+from user"`) - proving the query-based reconciliation path is doing real work regardless of
+whether the callback ever arrives. The B2C payout stayed honestly `pending` (no query
+fallback exists for B2C, by design - see `daraja-adapter.ts`).
+
+This is now two independent tests, a day apart, with the same result: **the inbound
+callback has never once been observed to arrive from Daraja's sandbox**, despite the
+outbound path (push, query, reconciliation) working correctly and consistently every time.
+This is no longer treated as a possible one-off timing fluke - it's a repeatable pattern in
+this specific sandbox environment, not a bug in `services/payments`' own routing (confirmed
+via API Gateway's own access logs correctly capturing every other request in both tests).
+
 ## What this confirms
 
 - OAuth token exchange: **verified live**.
