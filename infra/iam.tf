@@ -456,6 +456,9 @@ data "aws_iam_policy_document" "ci_deploy_infra" {
       "sqs:*",         # added for infra/async.tf (G1) - commission-close queue + DLQ
       "scheduler:*",   # added for infra/async.tf (G1) - daily commission-close trigger
       "lambda:*",      # added for infra/slack-notifier.tf (G3) - the Slack alert Lambda
+      "s3:*",          # added for infra/synthetics.tf (G3) - the artifacts bucket, first S3 use in this stack
+      "kms:*",         # added for infra/synthetics.tf (G3) - the artifacts bucket's own CMK; the narrower TfstateKmsKey statement below still covers the pre-existing tfstate lock key specifically
+      "events:*",      # added for infra/external-probe.tf (G3) - the one-minute external probe's EventBridge schedule
     ]
     resources = ["*"]
     condition {

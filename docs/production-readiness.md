@@ -6,6 +6,25 @@ owner and a revisit trigger, per the brief's requirement to log accepted risk ra
 silently ignore a scan finding. "Fixed later" items belong in `docs/scar-log.md` instead —
 this file is for things being knowingly left as-is right now.
 
+## External synthetic probe (see also infra/external-probe.tf)
+
+**Built as a plain scheduled Lambda, not CloudWatch Synthetics - confirmed as a real account
+constraint, not a design preference.** A `aws_synthetics_canary` resource was applied for
+real against this account and failed: `'MemorySize' value failed to satisfy constraint:
+Member must have value less than or equal to 512`. Synthetics canaries run as a Lambda
+function under the hood and AWS's own API enforces a 960MB minimum for that function; this
+shared cohort account caps every Lambda's memory at 512MB. Those two constraints are
+mutually exclusive here, so CloudWatch Synthetics cannot run in this account at all -
+confirmed live (the partially-created canary was deleted after the failed apply), not
+assumed from documentation. `infra/lambda/external-probe/index.mjs` does the same job
+(external HTTP check on a 1-minute schedule, from outside the VPC, emitting a custom
+CloudWatch metric an alarm watches) within the account's real limits - verified live: a
+real run logged a real 200 response and published a real `ProbeSuccess=1.0` datapoint that
+the new alarm correctly evaluated. Owner: sharon2719. Revisit: if this project ever moves
+to an account without that Lambda memory restriction, either is fine - the current Lambda
+approach isn't a lesser substitute functionally, just a different implementation of the
+same requirement.
+
 ## Alerting (see also infra/slack-notifier.tf, infra/burn-rate-alerts.tf)
 
 **Slack alerting is fully built and deployed but not yet live** - the `devops-g5-alerts`

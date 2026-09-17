@@ -63,6 +63,23 @@ for before this one existed.
    tradeoff of `desired_count = 1` (see `docs/production-readiness.md`) - confirm the
    deploy's circuit breaker didn't roll back, then let it clear.
 
+## `external-probe-failing`
+
+**Means:** the one-minute external probe (`infra/external-probe.tf`) failed 3 consecutive
+checks from *outside* the VPC entirely - the only signal in this stack that observes the
+system the same way a real user's browser would, through the public API Gateway endpoint.
+Everything else here (the other alarms, the dashboard) observes from inside AWS.
+
+**First response:**
+1. Check `/aws/lambda/devops-g5-external-probe`'s own logs for the actual failure (a
+   non-200 status, a timeout, or a network error reaching the endpoint at all).
+2. If every other alarm is `OK`: this may point at something outside AWS's own visibility -
+   API Gateway itself, DNS, or a networking issue between the public internet and API
+   Gateway, not the ECS services behind it.
+3. Confirm by hitting the public endpoint directly yourself:
+   `curl https://<api endpoint>/health` - if that also fails while internal checks are
+   green, the problem is specifically in the public-facing path.
+
 ## `<service>-latency-p95`
 
 **Means:** p95 response time through the ALB is over that service's SLO target (pos 400ms,
@@ -94,6 +111,20 @@ anyone; if it fires, the deploy is stuck or the task is crash-looping.
    `infra/ecs-*.tf`) should already have rolled it back automatically - confirm the running
    task definition revision matches the last known-good one from
    `.github/workflows/deploy-<service>.yml`'s history.
+
+## `<service>-fast-burn` / `<service>-slow-burn`
+
+**Means:** the error-rate burn rate (observed error rate ÷ the SLO's error budget, see
+`docs/slo-error-budgets.md`) crossed 14.4x (fast) or 3x (slow) over `infra/burn-rate-alerts.tf`'s
+windows. Same proxy-metric caveat as every alarm in this stack (`docs/production-readiness.md`) -
+commission's is the roughest proxy of the four, since its real SLI isn't HTTP-shaped.
+
+**First response:**
+1. `fast-burn`: follow `docs/release-freeze-policy.md` - freeze non-emergency deploys to
+   this service, then treat it like `<service>-5xx` above (it's the same underlying
+   signal, just expressed as a rate against the budget instead of a raw count).
+2. `slow-burn`: no freeze needed - ticket it for the next normal deploy per
+   `docs/release-freeze-policy.md`.
 
 ## `rds-cpu` / `rds-connections` / `rds-free-storage`
 

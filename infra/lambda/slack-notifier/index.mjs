@@ -58,6 +58,11 @@ const ALARM_KINDS = {
     impact: "A service was briefly unreachable at the load balancer level",
     firstSafeAction: "Check which target group had zero healthy hosts - see docs/runbook.md",
   },
+  "external-probe-failing": {
+    symptom: "The external synthetic probe has failed 3 consecutive minutes",
+    impact: "The public endpoint may be unreachable from outside AWS, not just internally",
+    firstSafeAction: "Check the probe's own CloudWatch logs (/aws/lambda/devops-g5-external-probe) and hit the public endpoint directly - see docs/runbook.md",
+  },
 };
 
 const SERVICE_OWNERS = {
