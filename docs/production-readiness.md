@@ -6,6 +6,43 @@ owner and a revisit trigger, per the brief's requirement to log accepted risk ra
 silently ignore a scan finding. "Fixed later" items belong in `docs/scar-log.md` instead —
 this file is for things being knowingly left as-is right now.
 
+## External synthetic probe (see also infra/external-probe.tf)
+
+**Built as a plain scheduled Lambda, not CloudWatch Synthetics - confirmed as a real account
+constraint, not a design preference.** A `aws_synthetics_canary` resource was applied for
+real against this account and failed: `'MemorySize' value failed to satisfy constraint:
+Member must have value less than or equal to 512`. Synthetics canaries run as a Lambda
+function under the hood and AWS's own API enforces a 960MB minimum for that function; this
+shared cohort account caps every Lambda's memory at 512MB. Those two constraints are
+mutually exclusive here, so CloudWatch Synthetics cannot run in this account at all -
+confirmed live (the partially-created canary was deleted after the failed apply), not
+assumed from documentation. `infra/lambda/external-probe/index.mjs` does the same job
+(external HTTP check on a 1-minute schedule, from outside the VPC, emitting a custom
+CloudWatch metric an alarm watches) within the account's real limits - verified live: a
+real run logged a real 200 response and published a real `ProbeSuccess=1.0` datapoint that
+the new alarm correctly evaluated. Owner: sharon2719. Revisit: if this project ever moves
+to an account without that Lambda memory restriction, either is fine - the current Lambda
+approach isn't a lesser substitute functionally, just a different implementation of the
+same requirement.
+
+## Alerting (see also infra/slack-notifier.tf, infra/burn-rate-alerts.tf)
+
+**Slack alerting is fully built and deployed but not yet live** - the `devops-g5-alerts`
+SNS topic has a Lambda subscriber (`infra/lambda/slack-notifier/index.mjs`) that formats
+every alarm into the brief's required contract (environment, service, symptom, impact,
+value, panel, runbook link, owner, first safe action) and posts it to a Slack webhook URL
+read from Secrets Manager - but that secret is still the placeholder `"unset"`. Verified
+live: invoked the deployed Lambda directly with a real alarm-shaped event, confirmed it
+correctly reads the secret, detects the placeholder, and exits cleanly (no crash, no stuck
+retry) rather than erroring - this is the honest, tested "not configured yet" path, not an
+assumption. Also caught and fixed a real bug during that verification: `alb-elb-5xx`
+alarms were matching the shorter generic `5xx` suffix first (object insertion order), which
+would have misclassified every one of them with the wrong service name and a generic
+message instead of its own. Fixed by sorting suffix matches longest-first. Owner:
+sharon2719. Revisit: create a Slack incoming webhook and push its URL via
+`aws secretsmanager put-secret-value --secret-id devops-g5-slack-webhook-url` (same
+out-of-band handoff as the Daraja credentials) - no code or infra change needed after that.
+
 ## Daraja integration (see also services/_shared/src/daraja-adapter.ts)
 
 **`DarajaMpesaAdapter` is verified live end to end for outbound calls, deployed and running
