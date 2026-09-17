@@ -455,6 +455,7 @@ data "aws_iam_policy_document" "ci_deploy_infra" {
       "elasticache:*", # added for infra/async.tf (G1) - Redis, no consumer wired up yet
       "sqs:*",         # added for infra/async.tf (G1) - commission-close queue + DLQ
       "scheduler:*",   # added for infra/async.tf (G1) - daily commission-close trigger
+      "lambda:*",      # added for infra/slack-notifier.tf (G3) - the Slack alert Lambda
     ]
     resources = ["*"]
     condition {
@@ -559,6 +560,21 @@ data "aws_iam_policy_document" "ci_deploy_infra" {
       "secretsmanager:UntagResource",
     ]
     resources = ["arn:aws:secretsmanager:${var.region}:240462142849:secret:${var.name_prefix}-daraja-credentials-*"]
+  }
+
+  statement {
+    sid = "SlackWebhookSecret"
+    actions = [
+      "secretsmanager:CreateSecret",
+      "secretsmanager:DeleteSecret",
+      "secretsmanager:DescribeSecret",
+      "secretsmanager:GetSecretValue",
+      "secretsmanager:GetResourcePolicy",
+      "secretsmanager:PutSecretValue",
+      "secretsmanager:TagResource",
+      "secretsmanager:UntagResource",
+    ]
+    resources = ["arn:aws:secretsmanager:${var.region}:240462142849:secret:${var.name_prefix}-slack-webhook-url-*"]
   }
 }
 
