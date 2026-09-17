@@ -1,6 +1,8 @@
 # SLIs, SLOs and error budgets
 
-Draft — starter targets from the capstone brief. Budget = eligible events × (1 − target),
+Finalized before G3, per the brief's own rule (see "Changing targets" below for the one
+review that happened against real data before locking these in). Budget = eligible events ×
+(1 − target),
 over a rolling 28-day window unless noted. Invalid requests and genuine business declines
 (e.g. insufficient till float) are excluded from the denominator; a Daraja or infrastructure
 outage that causes a user-visible failure still counts against the budget even though the
@@ -26,4 +28,14 @@ root cause is external.
 Targets may only change before final benchmarking (before G3), and only with a written
 rationale appended below this line, per the brief's rule.
 
-_(no changes yet)_
+**2026-09-17 — reviewed against real data, targets kept as-is.** `docs/load-tests.md`'s k6
+run showed `pos` missing its own 400ms p95 target under load (462.9ms), with CPU nowhere
+near saturated - the working hypothesis is event-loop contention from `desired_count = 1`
+giving zero spare capacity (`docs/production-readiness.md`), not that 400ms is
+unrealistic for what `pos` actually does. Decided not to loosen the target to make a real
+capacity gap disappear on paper - the target stays at 400ms as the actual promise being
+made, and the accepted risk of missing it under load stays visible in
+`docs/production-readiness.md` instead of being hidden by a rewritten SLO. Commission's
+06:30 EAT deadline is unchanged and now has a real mechanism behind it: `infra/async.tf`'s
+EventBridge schedule fires at 05:00 EAT, a 1.5h buffer. Web and Payments targets are
+unchanged - no data has come in that challenges either.
