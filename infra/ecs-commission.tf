@@ -36,6 +36,10 @@ resource "aws_ecs_task_definition" "commission" {
         # Calls payments through the SAME internal ALB (path-routed), not directly to the
         # payments task - see infra/security-groups.tf's commission_task_to_alb rule.
         { name = "PAYMENTS_API_URL", value = "http://${aws_lb.main.dns_name}" },
+        { name = "AWS_REGION", value = var.region },
+        # Starts the SQS worker loop (src/worker.ts) alongside the HTTP server - see
+        # infra/async.tf and infra/iam.tf for the queue and its consumer IAM grant.
+        { name = "COMMISSION_CLOSE_QUEUE_URL", value = aws_sqs_queue.commission_close.url },
       ]
       secrets = [
         { name = "DB_USER", valueFrom = "${aws_db_instance.main.master_user_secret[0].secret_arn}:username::" },

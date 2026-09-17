@@ -1,13 +1,14 @@
 # G1 platform scaffolding the brief calls for alongside VPC/ECS/RDS: a cache, a queue+DLQ,
-# and a scheduled trigger. None has an application-code consumer wired up yet - that's
-# tracked explicitly below and in docs/production-readiness.md, not silently implied to be
-# finished. Provisioning these now (rather than only "once a service actually needs them",
-# this repo's usual rule) is deliberate: the brief's G1 checklist asks for them by name as
-# platform deliverables, ahead of and independent from which G2 feature ends up using them.
+# and a scheduled trigger. G4 (docs/recovery-drills.md) wired the first real consumers for
+# both: pos's requireAuth (services/pos/src/cache.ts) reads/writes the Redis replication
+# group below as a read-through cache in front of the api_keys DB lookup, and commission's
+# SQS worker (services/commission/src/worker.ts) consumes the queue below - see that file's
+# own header for why it's still a deliberately narrow consumer, not full cross-tenant
+# reconciliation.
 
-# --- ElastiCache (Redis): no consumer yet. Security group has zero ingress rules on
-# purpose - the same "add the rule when a real caller exists" pattern as every other
-# security group in this repo (see infra/security-groups.tf's header), not an oversight. ---
+# --- ElastiCache (Redis): consumed by pos's auth cache. Ingress is scoped to exactly the
+# one real caller, same pattern as every other security group in this repo (see
+# infra/security-groups.tf's header). ---
 
 resource "aws_elasticache_subnet_group" "main" {
   name       = "${var.name_prefix}-cache"
@@ -20,7 +21,7 @@ resource "aws_elasticache_subnet_group" "main" {
 
 resource "aws_security_group" "redis" {
   name_prefix = "${var.name_prefix}-redis-"
-  description = "ElastiCache Redis - no ingress yet, no consumer wired up (see infra/async.tf header)"
+  description = "ElastiCache Redis - ingress only from the pos ECS task"
   vpc_id      = aws_vpc.main.id
 
   tags = {
@@ -33,9 +34,35 @@ resource "aws_security_group" "redis" {
   }
 }
 
+resource "aws_vpc_security_group_ingress_rule" "redis_from_pos_task" {
+  security_group_id            = aws_security_group.redis.id
+  description                  = "from the pos ECS task"
+  referenced_security_group_id = aws_security_group.pos_task.id
+  from_port                    = 6379
+  to_port                      = 6379
+  ip_protocol                  = "tcp"
+
+  tags = {
+    service = "pos"
+  }
+}
+
+resource "aws_vpc_security_group_egress_rule" "pos_task_to_redis" {
+  security_group_id            = aws_security_group.pos_task.id
+  description                  = "to ElastiCache Redis"
+  referenced_security_group_id = aws_security_group.redis.id
+  from_port                    = 6379
+  to_port                      = 6379
+  ip_protocol                  = "tcp"
+
+  tags = {
+    service = "pos"
+  }
+}
+
 resource "aws_elasticache_replication_group" "main" {
   replication_group_id = "${var.name_prefix}-cache"
-  description          = "TillFlow shared cache - single node, no consumer wired up yet"
+  description          = "TillFlow shared cache - pos's API-key auth read-through cache"
 
   engine             = "redis"
   engine_version     = "7.1"
@@ -54,9 +81,10 @@ resource "aws_elasticache_replication_group" "main" {
   }
 }
 
-# --- SQS + DLQ: for commission's scheduled run below. The queue exists and the schedule
-# below feeds it; nothing consumes it yet (services/commission still runs as an
-# HTTP-invoked API, not a queue worker) - see docs/production-readiness.md for that gap. ---
+# --- SQS + DLQ: for commission's scheduled run below. commission's own process now long-
+# polls this queue (services/commission/src/worker.ts, started from index.ts when
+# COMMISSION_CLOSE_QUEUE_URL is set - see infra/ecs-commission.tf and infra/iam.tf for the
+# env var and the IAM grant). ---
 
 resource "aws_sqs_queue" "commission_close_dlq" {
   name                      = "${var.name_prefix}-commission-close-dlq"
@@ -97,9 +125,10 @@ resource "aws_sqs_queue_redrive_allow_policy" "commission_close_dlq" {
 
 # --- EventBridge Scheduler: fires daily at 05:00 EAT (Africa/Nairobi), 1.5h ahead of the
 # 06:30 EAT SLO target in docs/slo-error-budgets.md, and drops a message on the queue above.
-# Nothing reads that message yet - this schedule proves the trigger exists and fires
-# correctly (visible in CloudWatch/the queue's message count), which is the G1 platform
-# deliverable; wiring an actual consumer that calls commission's close logic is G2 work. ---
+# commission's worker now reads and records every message this produces (see the SQS
+# section above) - it deliberately doesn't yet perform the full cross-tenant sales
+# reconciliation a real "close everyone's day" run would need (see
+# migrations/002_scheduled_runs.sql for why that's separate, not-yet-built work). ---
 
 data "aws_iam_policy_document" "scheduler_assume" {
   statement {
