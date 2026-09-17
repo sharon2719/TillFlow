@@ -43,6 +43,18 @@ sharon2719. Revisit: create a Slack incoming webhook and push its URL via
 `aws secretsmanager put-secret-value --secret-id devops-g5-slack-webhook-url` (same
 out-of-band handoff as the Daraja credentials) - no code or infra change needed after that.
 
+**G4 found a more serious gap upstream of the Slack question entirely (`docs/recovery-drills.md`
+drill 2): the direct-Lambda-invocation test above proved the Lambda's own logic works, but
+never proved a real CloudWatch alarm reaching `ALARM` actually triggers it through SNS.**
+Test-firing two real alarms with `aws cloudwatch set-alarm-state` produced zero SNS
+`NumberOfMessagesPublished`, zero Lambda invocations, and no Slack-notifier log entries at
+all, despite `ActionsEnabled: true` and correct-looking `AlarmActions`/topic-policy/Lambda
+resource-policy configuration. Not yet root-caused. Owner: sharon2719. Revisit: before
+trusting this stack to page anyone for a real incident - confirm whether the alarm emails
+actually arrive at `tillflow4@gmail.com`, and if not, treat this as higher-priority than the
+Slack webhook gap above, since email is supposed to already be the working half of this
+path.
+
 ## Daraja integration (see also services/_shared/src/daraja-adapter.ts)
 
 **`DarajaMpesaAdapter` is verified live end to end for outbound calls, deployed and running
