@@ -599,6 +599,30 @@ data "aws_iam_policy_document" "ci_deploy_infra" {
     ]
     resources = ["arn:aws:secretsmanager:${var.region}:240462142849:secret:${var.name_prefix}-slack-webhook-url-*"]
   }
+
+  # DynamoDB, like Secrets Manager above, supports resource-level ARN scoping even for
+  # CreateTable/DeleteTable - never needs to widen to "dynamodb:*" in the broad statement
+  # above the way EC2/ELB/ECS/etc. do (see docs/adr/0006-ci-infra-permissions.md). Scoped to
+  # just the one table this stack creates (infra/slack-notifier.tf's dedup table, added
+  # alongside the duplicate-Slack-alert fix) - the tflock table above is a separate,
+  # pre-existing backend resource with its own narrower statement. Missing this is what broke
+  # this PR's own terraform plan job: AccessDeniedException on dynamodb:DescribeTable the
+  # first time CI tried to refresh a table this role had never needed permissions for before.
+  statement {
+    sid = "SlackNotifierDedupTable"
+    actions = [
+      "dynamodb:CreateTable",
+      "dynamodb:DeleteTable",
+      "dynamodb:DescribeTable",
+      "dynamodb:UpdateTable",
+      "dynamodb:DescribeTimeToLive",
+      "dynamodb:UpdateTimeToLive",
+      "dynamodb:TagResource",
+      "dynamodb:UntagResource",
+      "dynamodb:ListTagsOfResource",
+    ]
+    resources = ["arn:aws:dynamodb:${var.region}:240462142849:table/${var.name_prefix}-slack-notifier-dedup"]
+  }
 }
 
 resource "aws_iam_role_policy" "ci_deploy_infra" {
