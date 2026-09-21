@@ -24,7 +24,12 @@ resource "aws_lb_target_group" "pos" {
   target_type = "ip" # Fargate awsvpc mode registers ENIs, not instances
 
   health_check {
-    path                = "/health"
+    # /ready round-trips the DB, /health doesn't - see docs/recovery-drills.md's
+    # "Incident 1": payments crash-looped on a rotated DB credential while its bare /health
+    # kept reporting 200 between crashes. Pointing the target group's own health check at
+    # /ready means a broken DB connection gets this target marked unhealthy for real,
+    # instead of only surfacing as request-level errors nothing here would catch.
+    path                = "/ready"
     healthy_threshold   = 2
     unhealthy_threshold = 3
     interval            = 15
@@ -77,6 +82,11 @@ resource "aws_lb_target_group" "payments" {
   target_type = "ip"
 
   health_check {
+    # Deliberately still /health, NOT /ready: the payments service's /ready route
+    # (docs/recovery-drills.md's Incident 1 fix) isn't deployed to the running image yet -
+    # switching this to /ready before that code is live caused a real, self-inflicted
+    # outage (docs/scar-log.md). Flip to /ready in the SAME PR/deploy that ships the
+    # /ready code, never ahead of it.
     path                = "/health"
     healthy_threshold   = 2
     unhealthy_threshold = 3
@@ -118,6 +128,8 @@ resource "aws_lb_target_group" "commission" {
   target_type = "ip"
 
   health_check {
+    # Deliberately still /health, NOT /ready - see the payments target group's comment
+    # above, same reasoning.
     path                = "/health"
     healthy_threshold   = 2
     unhealthy_threshold = 3

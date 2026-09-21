@@ -27,39 +27,56 @@ same requirement.
 
 ## Alerting (see also infra/slack-notifier.tf, infra/burn-rate-alerts.tf)
 
-**Slack alerting is fully built and deployed but not yet live** - the `devops-g5-alerts`
-SNS topic has a Lambda subscriber (`infra/lambda/slack-notifier/index.mjs`) that formats
-every alarm into the brief's required contract (environment, service, symptom, impact,
-value, panel, runbook link, owner, first safe action) and posts it to a Slack webhook URL
-read from Secrets Manager - but that secret is still the placeholder `"unset"`. Verified
-live: invoked the deployed Lambda directly with a real alarm-shaped event, confirmed it
-correctly reads the secret, detects the placeholder, and exits cleanly (no crash, no stuck
-retry) rather than erroring - this is the honest, tested "not configured yet" path, not an
-assumption. Also caught and fixed a real bug during that verification: `alb-elb-5xx`
-alarms were matching the shorter generic `5xx` suffix first (object insertion order), which
-would have misclassified every one of them with the wrong service name and a generic
-message instead of its own. Fixed by sorting suffix matches longest-first. Owner:
-sharon2719. Revisit: create a Slack incoming webhook and push its URL via
-`aws secretsmanager put-secret-value --secret-id devops-g5-slack-webhook-url` (same
-out-of-band handoff as the Daraja credentials) - no code or infra change needed after that.
+**Alerting is live, confirmed end to end for real on 2026-09-21 - both the Slack posting
+mechanism and, separately, the actual alarm-delivery path that was broken.** The
+`devops-g5-alerts` SNS topic has a Lambda subscriber (`infra/lambda/slack-notifier/index.mjs`)
+that formats every alarm into the brief's required contract (environment, service, symptom,
+impact, value, panel, runbook link, owner, first safe action) and posts it to a Slack
+webhook URL read from Secrets Manager. Verification history, in order:
 
-**G4 found a more serious gap upstream of the Slack question entirely (`docs/recovery-drills.md`
-drill 2): the direct-Lambda-invocation test above proved the Lambda's own logic works, but
-never proved a real CloudWatch alarm reaching `ALARM` actually triggers it through SNS.**
-Test-firing two real alarms with `aws cloudwatch set-alarm-state` produced zero SNS
-`NumberOfMessagesPublished`, zero Lambda invocations, and no Slack-notifier log entries at
-all, despite `ActionsEnabled: true` and correct-looking `AlarmActions`/topic-policy/Lambda
-resource-policy configuration. Not yet root-caused. Owner: sharon2719. Revisit: before
-trusting this stack to page anyone for a real incident - confirm whether the alarm emails
-actually arrive at `tillflow4@gmail.com`, and if not, treat this as higher-priority than the
-Slack webhook gap above, since email is supposed to already be the working half of this
-path.
+1. Invoked the deployed Lambda directly with a real alarm-shaped event while the secret was
+   still the placeholder `"unset"`, confirming it detected that and exited cleanly - the
+   honest "not configured yet" path. Also caught and fixed a real bug: `alb-elb-5xx` alarms
+   matching the shorter generic `5xx` suffix first (object insertion order) - fixed by
+   sorting suffix matches longest-first.
+2. A real Slack webhook was populated; re-invoking the Lambda directly confirmed the message
+   actually arrived in the Slack channel (owner-verified visually).
+3. **A confirmed, isolated, upstream gap** (`docs/recovery-drills.md` drill 2): a real
+   CloudWatch alarm reaching `ALARM` did not result in CloudWatch calling `sns:Publish` at
+   all - proven via a direct `aws sns publish` reaching the Lambda in under a second (SNS
+   delivery itself fine) while a genuine, timing-verified `ALARM` state produced nothing.
+   Confirmed with the `tillflow4@gmail.com` owner that email had the identical gap - both
+   channels sat downstream of the same broken step, not two separate problems.
+4. **Fixed for real via two live-diagnosed changes, not a guess**: `infra/alarm-eventbridge-bridge.tf`
+   adds an EventBridge rule that catches "CloudWatch Alarm State Change" events independently
+   of an alarm's own `AlarmActions` (proven via a live diagnostic that CloudWatch's native
+   mechanism fails even against a fresh unencrypted topic - the root cause there remains
+   genuinely unexplained, worked around rather than fixed). That EventBridge path had its
+   own, separate blocker - KMS encryption on the alerts topic, isolated via a second live
+   diagnostic (identical EventBridge target against a fresh encrypted vs. unencrypted topic)
+   - fixed by removing `aws_sns_topic.alerts`'s KMS encryption (`infra/monitoring.tf`; the
+   topic never carried customer data, so this isn't a new risk, and the old
+   `trivy:ignore:AWS-0136` reasoning already argued exactly this).
+5. **Re-verified end to end via the real path**, not a component test: fired
+   `devops-g5-pos-5xx` with `set-alarm-state`, confirmed the Lambda ran within 3 seconds via
+   `CloudWatch -> EventBridge -> SNS -> Lambda`, and the owner visually confirmed the message
+   in Slack.
+
+Owner: sharon2719. **What's still genuinely open**: why CloudWatch's own native
+`AlarmActions` mechanism doesn't work on this account at all - the EventBridge bridge is a
+durable, correct fix for real alert delivery, not a workaround pretending to be a fix, but
+it doesn't explain the original mystery. If that's ever wanted, next step is checking for an
+AWS Organizations guardrail or filing an AWS Support case - not diagnosable further from the
+CLI surface available to this IAM role.
 
 ## Daraja integration (see also services/_shared/src/daraja-adapter.ts)
 
 **`DarajaMpesaAdapter` is verified live end to end for outbound calls, deployed and running
-in the real payments service with real Secrets-Manager-backed credentials; the two inbound
-callback routes have never been observed to receive a real Daraja webhook.**
+in the real payments service with real Secrets-Manager-backed credentials. As of a 2026-09-18
+follow-up (`evidence/payments-integrity/end-to-end-demo-2026-09-18.md`), the inbound STK
+callback route has now been observed receiving a real Daraja webhook - 28 seconds after an
+STK push, after two earlier dedicated tests each waited 10+ minutes with nothing arriving.
+Delivery is real but unpredictable, not absent.**
 `evidence/payments-integrity/daraja-sandbox-verification-2026-09-16.md` records real runs
 against the sandbox: a token exchange, an STK push (`ws_CO_...` CheckoutRequestID), a query
 resolving to a real terminal state (`resultCode 1037`, "DS timeout user cannot be reached" -
@@ -71,18 +88,18 @@ fixed a real bug: Daraja's `ResultCode`/`ResponseCode` arrive as JSON numbers, a
 threatening the "a timeout is never a decline" guarantee. Now covered by 7 deterministic
 unit tests in `services/_shared/test/daraja-adapter.test.ts`.
 
-What's still unverified, and confirmed genuinely not received (twice, a day apart) rather
-than just unchecked: two independent test rounds, each waiting 10+ minutes after triggering
-real STK/B2C transactions against the live endpoint, each checking both `services/payments`'
-own CloudWatch logs and the API Gateway's access logs (which correctly captured every other
-request in both tests, ruling out a logging or routing blind spot) - zero requests to either
-callback path arrived at either layer, either time. Meanwhile the query-based reconciliation
-path resolved the STK transaction correctly both times (`resultCode 1037`), proving that
-mechanism works regardless of whether the callback ever fires. This is now a repeatable
-pattern in this sandbox environment, not a one-off timing fluke. Owner: sharon2719. Revisit:
-if this needs to be provably closed, either find documentation on why Safaricom's sandbox
-doesn't deliver these callbacks, or treat query-based reconciliation as the actual
-production-safe mechanism and stop depending on the callback path being reliable.
+**What's still unverified: a real Daraja completion of the full `paid -> commission ->
+B2C` path.** The 09-18 callback that did arrive resolved as `ResultCode 1037, "No response
+from user"` - a genuine decline, since the shared sandbox test MSISDN has no real phone
+behind it to approve the STK prompt, not a "paid" outcome. Commission close correctly
+excluded the failed sale from any payout (`eligibleSales: 0`), live - but reaching "paid"
+with a *real* Daraja transaction would need either a real test phone approving the prompt,
+or documentation on how to make the sandbox return success, neither available here. The
+`FakeMpesaAdapter` remains the only way this project has reached "paid" on demand; treated
+as a disclosed, deliberate substitution (see the end-to-end-demo evidence file), not a
+silently-skipped step. Owner: sharon2719. Revisit: if a real "paid" completion is still
+wanted, look into Daraja sandbox test credentials/numbers documented to succeed rather than
+decline, since `254708374149` (Safaricom's own published one) evidently doesn't.
 
 **`DarajaMpesaAdapter.queryTransaction` can't resolve a B2C `conversationId`.** Daraja has
 a dedicated STK query endpoint keyed by `checkoutRequestId`, but no equivalent single call
@@ -258,6 +275,54 @@ is touched for another reason, to avoid a standalone apply just for this.
 "runningCount < desiredCount" ECS alarm — `<service>-unhealthy` (ALB-level) is the closest
 proxy today. Owner: sharon2719. Revisit: before G4, since failure drills will want a faster,
 more direct signal than "the ALB stopped seeing a healthy target."
+
+## Credential rotation can silently crash-loop a service (see docs/recovery-drills.md, Incident 1)
+
+**RDS's managed master-password rotation (`rotationEnabled: true`) crash-looped `payments`
+in production on 2026-09-21** - not a drill, found live. `pos` and `commission` share the
+same rotation and the same failure mode, but happened to have redeployed since the rotation
+landed and so already held the fresh credential; `payments` hadn't redeployed and crashed
+outright on every DB-touching request until manually force-redeployed. Two real gaps found:
+
+1. **Nothing restarts a DB-dependent service when its credential rotates** - three services
+   surviving this time was luck, not a mechanism. **Still open.**
+2. **Every service's health/readiness check was DB-independent by design**, so a fully
+   DB-broken service reported itself healthy indefinitely - this is also why none of the
+   alarms in `infra/monitoring.tf` fired, on top of drill 2's separate finding that alarm
+   delivery itself doesn't work. **Fixed same-day**: `pos`, `payments`, and `commission` all
+   now have a real `/ready` route (`SELECT 1` against the DB, `503` on failure, tested for
+   both outcomes). Applying the ALB side of this fix (`infra/alb.tf` health-checking `/ready`
+   instead of `/health`) ahead of the `payments`/`commission` code being deployed caused a
+   second, real, self-inflicted incident the same day - see `docs/scar-log.md`. Current live
+   state: `pos`'s target group is on `/ready` (safe - its route pre-dates this fix);
+   `payments`'s and `commission`'s target groups are back on `/health` until their `/ready`
+   code is actually deployed.
+
+Owner: sharon2719. Revisit gap 1 before this ever carries real traffic - either disable
+automatic rotation (documented security trade-off) or wire an EventBridge rule on the
+rotation event that force-redeploys all three DB-dependent services. Gap 2's code fix exists
+but needs a real deploy to prove it catches this class of failure live, not just in tests.
+
+## Task definition image tags silently default to a nonexistent placeholder
+
+**`pos_image_tag`/`payments_image_tag`/`commission_image_tag`/`web_image_tag`/
+`grafana_image_tag` all default to `"bootstrap"`, a tag that was never actually pushed to
+ECR for real** - real deploys have only ever pushed SHA tags, driven entirely by CI directly
+updating each `aws_ecs_service` to a new revision (`lifecycle.ignore_changes =
+[task_definition]`, so Terraform never sees or records what CI actually deployed). This
+means Terraform's own idea of "the current image" has been stale since each service's first
+real deploy, and any `terraform apply` that registers a new task definition revision for any
+reason - not just an image change, *any* change to that resource - without an explicit
+`-var="<service>_image_tag=<real sha>"` override will silently produce a revision pointing
+at a nonexistent image. Confirmed live and the hard way, not by inspection:
+`docs/scar-log.md`'s "three compounding incidents" - a real `terraform apply` for an
+unrelated env-var change did exactly this to `pos` and `commission`, producing
+`CannotPullContainerError: ...:bootstrap: not found` the moment either was deployed. Owner:
+sharon2719. Revisit: before the next infra change touches any ECS task definition - either
+always pass the current real SHA as a `-var` (fragile, relies on remembering), or replace the
+variable with a `data "aws_ecs_task_definition"` lookup against the live service so Terraform
+reads the actually-running image instead of trusting a variable that's only ever correct by
+coincidence.
 
 ## Registry-wide scanning (see also docs/adr/0005-shared-account-boundaries.md)
 

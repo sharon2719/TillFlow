@@ -1,0 +1,13 @@
+
+> @tillflow/shared@0.0.0 test
+> vitest run
+
+
+ RUN  v5.0.0 C:/Users/Sharon/Documents/tillflow/services/_shared
+
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  17:58:49
+   Duration  787ms (transform 53%, tests 25%, import 16%, worker 6%)
+

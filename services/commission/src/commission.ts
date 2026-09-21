@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { Router } from "express";
+import { Router, type Request, type Response } from "express";
 
 import type { Queryable } from "./db.js";
 import { injectTraceHeaders } from "./tracing.js";
@@ -108,6 +108,20 @@ export function createCommissionRouter(db: Queryable, callB2c: B2cCaller): Route
   // (/api/v1/commission/*, see infra/alb.tf) - bare /health falls through to pos's default
   // action instead, since it doesn't match that path pattern.
   router.get("/api/v1/commission/health", (_req, res) => res.status(200).json({ status: "ok" }));
+
+  // /health is liveness only (never touches the DB); /ready actually round-trips it. Added
+  // after docs/recovery-drills.md's "Incident 1" - a rotated DB credential can crash-loop a
+  // service while its /health check keeps reporting 200 between crashes.
+  const ready = async (_req: Request, res: Response) => {
+    try {
+      await db.query("SELECT 1");
+      res.status(200).json({ status: "ready" });
+    } catch (err) {
+      res.status(503).json({ status: "not ready", error: err instanceof Error ? err.message : "DB check failed" });
+    }
+  };
+  router.get("/ready", ready);
+  router.get("/api/v1/commission/ready", ready);
 
   router.post("/api/v1/commission/close", async (req, res) => {
     try {

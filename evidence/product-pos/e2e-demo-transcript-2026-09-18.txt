@@ -1,0 +1,60 @@
+=== TillFlow end-to-end demo: sale -> STK push -> (simulated Daraja callback) -> paid -> commission close -> B2C ===
+Target: https://6lak1mzcai.execute-api.eu-west-1.amazonaws.com (real deployed AWS stack, eu-west-1)
+Started: 2026-09-18T15:18:49Z
+
+--- Step 1: create tenant + owner ---
+{"tenantId":"22231fa2-a12b-44d7-88b1-881a2618da19","ownerAttendantId":"92efc885-059b-4f01-ac49-4f0c9b600e52","apiKey":"tfk_[REDACTED - real live credential, see 2026-09-21 remediation note at end of file]"}
+HTTP_STATUS:201
+
+--- Step 2: owner configures a till (5% commission) ---
+{"tillId":"1195b33b-b47a-479b-8f61-aced6d843ab0","tenantId":"22231fa2-a12b-44d7-88b1-881a2618da19","name":"Front counter","commissionRateBps":500}
+HTTP_STATUS:201
+
+--- Step 3: record a sale (2 items, integer minor units) ---
+{"saleId":"54e216c3-f4ac-43a2-a433-995c851a4c4d","tenantId":"22231fa2-a12b-44d7-88b1-881a2618da19","attendantId":"92efc885-059b-4f01-ac49-4f0c9b600e52","tillId":"1195b33b-b47a-479b-8f61-aced6d843ab0","totalMinorUnits":20000,"status":"recorded","items":[{"sku":"BREAD","quantity":2,"unitPriceMinorUnits":6000},{"sku":"MILK","quantity":1,"unitPriceMinorUnits":8000}]}
+HTTP_STATUS:201
+
+--- Step 4: STK push for the sale, against the REAL Daraja sandbox ---
+{"paymentId":"08f039ab-9280-46a0-8a01-db06d9fddf0a","tenantId":"22231fa2-a12b-44d7-88b1-881a2618da19","saleId":"54e216c3-f4ac-43a2-a433-995c851a4c4d","checkoutRequestId":"ws_CO_180920261819471708374149","status":"pending"}
+HTTP_STATUS:201
+
+--- Step 5: Daraja's sandbox did not deliver an inbound callback within the checked window
+    (consistent with evidence/payments-integrity/daraja-sandbox-verification-2026-09-16.md's
+    two prior dedicated tests, which waited 13+ and 7+ minutes with the same result).
+    Sending the exact real Daraja callback shape ourselves to the SAME live endpoint,
+    to demonstrate this system's own side of the contract end-to-end - clearly labeled
+    as a substitution for Daraja's own delivery, not a claim that Daraja delivered it.
+{"paymentId":"08f039ab-9280-46a0-8a01-db06d9fddf0a","status":"failed","note":"already resolved, callback ignored"}
+HTTP_STATUS:200
+
+--- REAL FINDING: Daraja's sandbox DID deliver a genuine inbound callback this time
+    (first time observed in this project's history) - 28 seconds after the STK push,
+    from a real Safaricom-shaped request (ReactorNetty client, businessshortcode: 174379
+    header, source IP in a Kenyan range). ResultCode 1037 'No response from user' - the
+    shared sandbox test MSISDN (254708374149) has no real phone attached to approve the
+    STK prompt, so Daraja legitimately declines it. My own manual callback attempt
+    (step 5 above) arrived 18 seconds AFTER Daraja's real one and was correctly rejected
+    as a duplicate ('already resolved, callback ignored') - real, unplanned proof of
+    replay-safety against an actual race with Daraja's own infrastructure, not just a
+    deterministic unit test.
+
+--- Step 6: query the transaction directly - confirms Daraja's real result ---
+{"id":"ws_CO_180920261819471708374149","status":"failed","resultCode":"1037","resultDescription":"No response from user.","source":"local"}
+HTTP_STATUS:200
+
+--- Step 7: commission close for the day - this sale is 'failed', not 'paid', so it
+    must be correctly excluded from any payout ---
+{"closeId":"df7bb2ff-fc38-4bc1-9e1b-3c3d1446c976","tenantId":"22231fa2-a12b-44d7-88b1-881a2618da19","businessDate":"2026-09-18","eligibleSales":0,"payouts":[]}
+HTTP_STATUS:201
+Finished: 2026-09-18T15:22:28Z
+
+--- 2026-09-21 remediation note ---
+GitGuardian flagged the raw API key originally printed in Step 1's response above as a
+hardcoded secret in the PR for this file. Redacted here. Real scope/impact: this key only
+ever authenticated as the owner of one throwaway demo tenant ("G5 Demo Duka") created solely
+for this transcript - no real customer, no real money, no access beyond that one tenant's
+own data (tenant-scoped auth, services/pos/src/auth.ts). There is no key-revocation endpoint
+in this API to invalidate it server-side; the practical mitigation taken was removing it
+from the file going forward rather than leaving a live-looking credential sitting in a
+committed evidence file, which is the right habit regardless of this specific key's actual
+blast radius.

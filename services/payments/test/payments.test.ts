@@ -208,4 +208,23 @@ describe("payments API", () => {
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/msisdn/i);
   });
+
+  it("GET /ready returns 200 when the DB round trip succeeds", async () => {
+    const res = await request(app).get("/ready");
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ status: "ready" });
+  });
+
+  it("GET /ready returns 503 when the DB round trip fails - the gap docs/recovery-drills.md's Incident 1 found", async () => {
+    const brokenDb: Queryable = {
+      async query() {
+        throw new Error("password authentication failed for user \"tillflow_admin\"");
+      },
+    };
+    const appWithBrokenDb = createApp(brokenDb, adapter);
+
+    const res = await request(appWithBrokenDb).get("/ready");
+    expect(res.status).toBe(503);
+    expect(res.body.status).toBe("not ready");
+  });
 });
