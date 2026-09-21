@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { Router } from "express";
+import { Router, type Request, type Response } from "express";
 import type { MpesaAdapter } from "@tillflow/shared";
 
 import type { Queryable } from "./db.js";
@@ -121,6 +121,21 @@ export function createPaymentsRouter(db: Queryable, adapter: MpesaAdapter): Rout
   // (/api/v1/payments/*, see infra/alb.tf) - bare /health falls through to pos's default
   // action instead, since it doesn't match that path pattern.
   router.get("/api/v1/payments/health", (_req, res) => res.status(200).json({ status: "ok" }));
+
+  // /health is liveness only (never touches the DB); /ready actually round-trips it. Added
+  // after docs/recovery-drills.md's "Incident 1" - payments crash-looped in production on a
+  // rotated DB credential with every /health check still reporting 200, because the process
+  // was only dead between crashes, not because anything checked the DB connection itself.
+  const ready = async (_req: Request, res: Response) => {
+    try {
+      await db.query("SELECT 1");
+      res.status(200).json({ status: "ready" });
+    } catch (err) {
+      res.status(503).json({ status: "not ready", error: err instanceof Error ? err.message : "DB check failed" });
+    }
+  };
+  router.get("/ready", ready);
+  router.get("/api/v1/payments/ready", ready);
 
   router.post("/api/v1/payments/stk", async (req, res) => {
     try {

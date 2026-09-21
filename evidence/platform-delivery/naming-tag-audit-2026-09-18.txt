@@ -1,0 +1,42 @@
+iam:role                 devops-g5-web-task                       ok       ok       -
+kms:key                  <no Name tag>                            FAIL     ok       -
+kms:key                  devops-g5-tfstate-kms                    ok       ok       -
+lambda:function          devops-g5-external-probe                 ok       ok       -
+lambda:function          devops-g5-slack-notifier                 ok       ok       -
+logs:log-group:          devops-g5/commission-adot                ok       ok       -
+logs:log-group:          aws/lambda/devops-g5-slack-notifier      FAIL     ok       -
+logs:log-group:          devops-g5/web-adot                       ok       ok       -
+logs:log-group:          devops-g5/payments                       ok       ok       -
+logs:log-group:          devops-g5/commission                     ok       ok       -
+logs:log-group:          aws/lambda/devops-g5-external-probe      FAIL     ok       -
+logs:log-group:          devops-g5/web                            ok       ok       -
+logs:log-group:          devops-g5/payments-adot                  ok       ok       -
+logs:log-group:          devops-g5/api-gateway                    ok       ok       -
+logs:log-group:          devops-g5/pos                            ok       ok       -
+logs:log-group:          devops-g5/pos-adot                       ok       ok       -
+logs:log-group:          devops-g5/grafana                        ok       ok       -
+rds:db                   devops-g5-db                             ok       ok       -
+rds:subgrp               devops-g5-db                             ok       ok       -
+s3:devops-g5-artifacts-240462142849 devops-g5-artifacts-240462142849         ok       ok       -
+s3:devops-g5-tfstate-240462142849 devops-g5-tfstate-240462142849           ok       ok       -
+secretsmanager:secret    rds!db-7adbe9a5-9a42-4763-89ab-6b3e4a7b6305-xSAE6f FAIL     ok       -
+secretsmanager:secret    devops-g5-grafana-admin-password-cOI42e  ok       ok       -
+secretsmanager:secret    devops-g5-daraja-credentials-s3HDqS      ok       ok       -
+secretsmanager:secret    devops-g5-slack-webhook-url-XSHgp5       ok       ok       -
+sns:devops-g5-alerts     devops-g5-alerts                         ok       ok       -
+sqs:devops-g5-commission-close devops-g5-commission-close               ok       ok       -
+sqs:devops-g5-commission-close-dlq devops-g5-commission-close-dlq           ok       ok       -
+
+160 resources checked, 8 failing.
+
+FAILURES:
+  - arn:aws:elasticloadbalancing:eu-west-1:240462142849:listener-rule/app/devops-g5-alb/e051239450c15c98/580abea451b23fbb/3d69ed635215a3d6: naming_ok=False missing_tags=[]
+  - arn:aws:elasticloadbalancing:eu-west-1:240462142849:listener-rule/app/devops-g5-alb/e051239450c15c98/580abea451b23fbb/792a67a014211320: naming_ok=False missing_tags=[]
+  - arn:aws:elasticloadbalancing:eu-west-1:240462142849:listener-rule/app/devops-g5-alb/e051239450c15c98/580abea451b23fbb/f5b2a07973f3d661: naming_ok=False missing_tags=[]
+  - arn:aws:elasticloadbalancing:eu-west-1:240462142849:listener-rule/app/devops-g5-alb/e051239450c15c98/580abea451b23fbb/862020d1609dc985: naming_ok=False missing_tags=[]
+  - arn:aws:kms:eu-west-1:240462142849:key/0452e857-6c59-4a13-a763-f4a0d0388382: naming_ok=False missing_tags=[]
+  - arn:aws:logs:eu-west-1:240462142849:log-group:/aws/lambda/devops-g5-slack-notifier: naming_ok=False missing_tags=[]
+  - arn:aws:logs:eu-west-1:240462142849:log-group:/aws/lambda/devops-g5-external-probe: naming_ok=False missing_tags=[]
+  - arn:aws:secretsmanager:eu-west-1:240462142849:secret:rds!db-7adbe9a5-9a42-4763-89ab-6b3e4a7b6305-xSAE6f: naming_ok=False missing_tags=[]
+
+[exited with code 0]

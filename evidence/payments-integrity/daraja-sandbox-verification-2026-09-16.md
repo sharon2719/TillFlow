@@ -154,3 +154,19 @@ via API Gateway's own access logs correctly capturing every other request in bot
   why), so this is entirely dependent on the callback landing.
 
 Tracked as the remaining open item in `docs/production-readiness.md`.
+
+## Update, 2026-09-18: the inbound callback finally arrived, live
+
+During the G5 end-to-end demo (`evidence/payments-integrity/end-to-end-demo-2026-09-18.md`),
+a real Daraja-originated inbound STK callback landed on the deployed `payments` service 28
+seconds after an STK push - the first time this has been directly observed, after two
+previous dedicated tests (runs 6-7 above) waited 13+ and 7+ minutes with nothing arriving.
+Confirmed genuine via the request's own signature in `/devops-g5/payments`'s access log
+(`user-agent: ReactorNetty/1.2.9`, `businessshortcode: 174379` header, a Kenyan source IP),
+not something sent by this session's own tooling. Result: `ResultCode 1037, "No response
+from user"` - a real decline, not a timeout, consistent with the shared sandbox test MSISDN
+having no real phone attached to approve the STK prompt. **"Inbound callback delivery" moves
+from unverified to verified live - Daraja's sandbox does deliver, just unpredictably (28
+seconds this time, never within 13+ minutes on two earlier attempts).** The B2C-payout leg
+specifically remains unverified for the same reason as before: this callback resolved the
+STK request as failed, so no B2C payout was ever requested for it to resolve in turn.

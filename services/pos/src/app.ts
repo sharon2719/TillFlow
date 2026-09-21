@@ -3,7 +3,7 @@ import { pinoHttp } from "pino-http";
 
 import { createNoopCache, createRedisCache, type Cache } from "./cache.js";
 import { createPool, type Queryable } from "./db.js";
-import { healthRouter } from "./health.js";
+import { createHealthRouter } from "./health.js";
 import { logger } from "./logger.js";
 import { createTenantsRouter } from "./routes/tenants.js";
 import { createSalesRouter } from "./sales.js";
@@ -35,7 +35,7 @@ export function createApp(db: Queryable = createPool(), cache: Cache = defaultCa
   app.use(tracingMiddleware);
   app.use(express.json());
   app.use(pinoHttp({ logger }));
-  app.use(healthRouter);
+  app.use(createHealthRouter(db));
   app.use(createTenantsRouter(db, cache));
   app.use(createSalesRouter(db, cache));
 
