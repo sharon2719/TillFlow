@@ -43,6 +43,11 @@ resource "aws_ecs_task_definition" "pos" {
         { name = "DB_PORT", value = tostring(aws_db_instance.main.port) },
         { name = "DB_NAME", value = aws_db_instance.main.db_name },
         { name = "DB_SCHEMA", value = "pos" },
+        # services/pos/src/cache.ts's read-through auth cache. rediss:// (not redis://) is
+        # required here - the replication group has transit_encryption_enabled = true
+        # (infra/async.tf), so ioredis must negotiate TLS or the connection is refused
+        # outright, not just unencrypted.
+        { name = "REDIS_URL", value = "rediss://${aws_elasticache_replication_group.main.primary_endpoint_address}:${aws_elasticache_replication_group.main.port}" },
       ]
       # Pulled by the execution role (infra/iam.tf: pos_exec_db_secret) from the
       # AWS-managed RDS credential, injected as plain env vars before the app starts - the

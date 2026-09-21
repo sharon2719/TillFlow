@@ -173,6 +173,26 @@ resource "aws_iam_role_policy" "commission_exec_db_secret" {
   policy = data.aws_iam_policy_document.commission_exec_db_secret.json
 }
 
+# services/commission/src/worker.ts's SQS consumer (task role, not exec role - this is the
+# running application calling SQS, not ECS pulling the image/writing logs).
+data "aws_iam_policy_document" "commission_task_sqs" {
+  statement {
+    sid = "ConsumeCommissionCloseQueue"
+    actions = [
+      "sqs:ReceiveMessage",
+      "sqs:DeleteMessage",
+      "sqs:GetQueueAttributes",
+    ]
+    resources = [aws_sqs_queue.commission_close.arn]
+  }
+}
+
+resource "aws_iam_role_policy" "commission_task_sqs" {
+  name   = "${var.name_prefix}-commission-task-sqs"
+  role   = aws_iam_role.commission_task.id
+  policy = data.aws_iam_policy_document.commission_task_sqs.json
+}
+
 # --- web: same exec/task role pattern, minus the DB secret grant - web has no database of
 # its own (see infra/ecs-web.tf), so its exec role only needs the managed policy every
 # execution role gets (ECR pull + CloudWatch Logs). Its SESSION_SECRET (infra/ecs-web.tf) is

@@ -5,18 +5,23 @@ page fired, start with "First response" for that alarm, not the whole document.
 
 Dashboard: `terraform output dashboard_url` (or AWS Console → CloudWatch → Dashboards →
 `devops-g5-overview`). Grafana: `https://<api endpoint>/grafana/d/tillflow-overview` (admin
-password in Secrets Manager, see `infra/ecs-grafana.tf`). Alarms notify the
-`devops-g5-alerts` SNS topic - email (working) and Slack (`infra/slack-notifier.tf`, only
-active once a real webhook URL is populated - see `docs/production-readiness.md`). The
-Slack message follows a fixed contract per alarm: environment, service, symptom, impact,
-value, panel link, runbook link, owner, first safe action - see
+password in Secrets Manager, see `infra/ecs-grafana.tf`). Alarms are *supposed* to notify the
+`devops-g5-alerts` SNS topic - email and Slack (`infra/slack-notifier.tf`, the latter also
+inert until a real webhook URL is populated, see `docs/production-readiness.md`). **As of
+`docs/recovery-drills.md`'s drill 2, whether that delivery actually happens is an open
+question, not a confirmed fact** - two live test-fired alarms produced no observable SNS
+publish or Lambda invocation at all, despite correct-looking configuration. Don't assume a
+firing alarm reaches anyone until that's resolved. The Slack message, if delivery is ever
+confirmed working, follows a fixed contract per alarm: environment, service, symptom,
+impact, value, panel link, runbook link, owner, first safe action - see
 `infra/lambda/slack-notifier/index.mjs` for exactly how each alarm maps to those fields.
 
-See `docs/recovery-drills.md` for what's actually been tested against this stack. It found
-two gaps: a missing ELB-wide 5xx alarm (fixed below, `alb-elb-5xx`) and a task replacement
-fast enough to self-heal in under ~2 minutes (true of every routine deploy, and was also
-true of the drill's real killed task) still pages no one at all - that second one is still
-open, see `docs/production-readiness.md`.
+See `docs/recovery-drills.md` for what's actually been tested against this stack, not just
+described. It found: a missing ELB-wide 5xx alarm (fixed below, `alb-elb-5xx`); a task
+replacement fast enough to self-heal in under ~2 minutes (true of every routine deploy, and
+was also true of drill 1's killed task) still pages no one at all (still open, see
+`docs/production-readiness.md`); and, per drill 2, the alert-delivery path itself couldn't be
+confirmed working when actually tested.
 
 ## What these alarms are (and aren't)
 

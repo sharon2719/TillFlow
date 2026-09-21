@@ -2,9 +2,10 @@ import { randomUUID } from "node:crypto";
 import { Router } from "express";
 
 import { generateApiKey, hashApiKey, requireAuth, requireOwner } from "../auth.js";
+import { createNoopCache, type Cache } from "../cache.js";
 import type { Queryable } from "../db.js";
 
-export function createTenantsRouter(db: Queryable): Router {
+export function createTenantsRouter(db: Queryable, cache: Cache = createNoopCache()): Router {
   const router = Router();
 
   // Bootstrap: creates a tenant plus its first attendant (role "owner"), and returns the
@@ -39,7 +40,7 @@ export function createTenantsRouter(db: Queryable): Router {
     res.status(201).json({ tenantId, ownerAttendantId: ownerId, apiKey: rawKey });
   });
 
-  const authed = requireAuth(db);
+  const authed = requireAuth(db, cache);
 
   // Adds an attendant to the CALLER's tenant - req.auth.tenantId, resolved from the API
   // key, never anything the client supplies in the body. This is the actual enforcement of

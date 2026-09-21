@@ -43,6 +43,18 @@ sharon2719. Revisit: create a Slack incoming webhook and push its URL via
 `aws secretsmanager put-secret-value --secret-id devops-g5-slack-webhook-url` (same
 out-of-band handoff as the Daraja credentials) - no code or infra change needed after that.
 
+**G4 found a more serious gap upstream of the Slack question entirely (`docs/recovery-drills.md`
+drill 2): the direct-Lambda-invocation test above proved the Lambda's own logic works, but
+never proved a real CloudWatch alarm reaching `ALARM` actually triggers it through SNS.**
+Test-firing two real alarms with `aws cloudwatch set-alarm-state` produced zero SNS
+`NumberOfMessagesPublished`, zero Lambda invocations, and no Slack-notifier log entries at
+all, despite `ActionsEnabled: true` and correct-looking `AlarmActions`/topic-policy/Lambda
+resource-policy configuration. Not yet root-caused. Owner: sharon2719. Revisit: before
+trusting this stack to page anyone for a real incident - confirm whether the alarm emails
+actually arrive at `tillflow4@gmail.com`, and if not, treat this as higher-priority than the
+Slack webhook gap above, since email is supposed to already be the working half of this
+path.
+
 ## Daraja integration (see also services/_shared/src/daraja-adapter.ts)
 
 **`DarajaMpesaAdapter` is verified live end to end for outbound calls, deployed and running
@@ -87,16 +99,22 @@ CI/k6 regardless of what's built), not an oversight to fix later.
 
 ## Async infrastructure (see also infra/async.tf)
 
-**ElastiCache, the SQS commission-close queue+DLQ, and its EventBridge Scheduler are
-provisioned with no application consumer yet.** `commission` still runs purely as an
-HTTP-invoked API (`POST /api/v1/commission/close`), not a queue worker - the daily
-schedule fires and drops a message on `devops-g5-commission-close`, but nothing reads it,
-and nothing in any service connects to Redis. These were provisioned now because the
-brief's G1 checklist calls for them by name as platform deliverables, ahead of the G2 work
-that will actually consume them. Owner: sharon2719. Revisit: before G3's "show traces
-across... the scheduled commission run" - that requires an actual consumer (e.g. an ECS
-scheduled task or a small worker polling the queue) that calls commission's existing close
-logic, replacing today's owner-triggered HTTP call.
+**ElastiCache and the SQS commission-close queue now have real, if deliberately narrow,
+consumers (G4).** `services/pos/src/cache.ts` wires the Redis replication group in as a
+read-through cache in front of `requireAuth`'s API-key lookup - the one DB round trip every
+authenticated request makes, and `docs/capacity-report.md`'s working hypothesis for pos's
+Run-1 SLO miss. `services/commission/src/worker.ts` long-polls the commission-close queue
+and records every trigger it receives in `commission.scheduled_runs`
+(`migrations/002_scheduled_runs.sql`). **What this still isn't:** the worker does not
+perform full cross-tenant sales reconciliation (aggregating every tenant's paid sales for
+the day and calling `close` on their behalf) - that would need a cross-service data source
+that doesn't exist yet (ADR-0003 rules out cross-service SQL joins; nothing currently
+exposes "list today's paid sales" over HTTP either) and an internal service-to-service auth
+mechanism (today's only auth model is a tenant-scoped API key, ADR-0007). Recording the
+trigger is real, honest work that gives the queue a genuine consumer with genuine
+success/failure/DLQ behavior - it is not a stand-in for the full feature. Owner: sharon2719.
+Revisit: build the cross-tenant reconciliation once pos exposes a way to list a tenant's
+sales needing close and a service-to-service auth story exists.
 
 ## Networking
 

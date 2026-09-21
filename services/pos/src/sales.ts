@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Router } from "express";
 
 import { requireAuth } from "./auth.js";
+import { createNoopCache, type Cache } from "./cache.js";
 import type { Queryable } from "./db.js";
 
 export interface SaleItemInput {
@@ -16,9 +17,9 @@ export interface SaleItemInput {
  * the request body - exactly the threat docs/threat-model.md #3 and docs/adr/0007 exist to
  * prevent). tenantId and attendantId now come from the authenticated API key only.
  */
-export function createSalesRouter(db: Queryable): Router {
+export function createSalesRouter(db: Queryable, cache: Cache = createNoopCache()): Router {
   const router = Router();
-  const authed = requireAuth(db);
+  const authed = requireAuth(db, cache);
 
   router.post("/api/v1/sales", authed, async (req, res) => {
     const idempotencyKey = req.header("Idempotency-Key");

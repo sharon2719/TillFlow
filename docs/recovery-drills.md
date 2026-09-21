@@ -69,3 +69,64 @@ two minutes, the same alarms would fire correctly - only the fast, transient cas
 - If the 2-minute window stays as-is (deliberately, to avoid deploy-noise pages), document
   that choice explicitly as "we accept not being paged for sub-2-minute self-healing events"
   rather than leaving it as an implicit side effect nobody decided on purpose.
+
+## Drill 2 — rehearse the runbook end-to-end (not just read it)
+
+**Date:** 2026-09-17. **Owner:** sharon2719.
+
+**Objective:** `docs/runbook.md` had never been walked through against the real stack -
+only two of its claims had ever been exercised (both via drill 1, indirectly). Every
+documented "first response" command and every referenced link was run for real, and the
+alert-delivery path itself was test-fired, not just assumed to work because the Terraform
+looks right.
+
+**What was rehearsed and confirmed accurate, command by command:**
+
+| Runbook claim | Rehearsed as | Result |
+|---|---|---|
+| `terraform output dashboard_url` / `api_endpoint` resolve | ran both | both resolve to real, live resources |
+| `aws logs tail /devops-g5/pos --since 15m` | ran against the live log group | real request logs returned, including the external probe's own traffic |
+| `/aws/lambda/devops-g5-external-probe` logs show pass/fail | tailed the group | real "Probe succeeded" entries, one per minute, matching `infra/external-probe.tf`'s schedule |
+| `curl https://<api endpoint>/health` | ran it | `200 {"status":"ok"}` |
+| Grafana reachable at `<api endpoint>/grafana/...` | `curl .../grafana/api/health` | `200` |
+| `aws ecs describe-services --cluster devops-g5 --services devops-g5-<service>` | ran for pos and commission | both correct, `runningCount == desiredCount` |
+| Dashboard has a "5xx count by service" panel with an ALB-wide line | fetched the real dashboard body (`aws cloudwatch get-dashboard`) and inspected its widgets | panel exists with exactly 4 per-service lines plus `HTTPCode_ELB_5XX_Count` labeled "ALB itself (e.g. no healthy target)" - matches the `alb-elb-5xx` procedure's description exactly |
+| Email is a working SNS subscription, Slack is a real (if inert) Lambda subscription | `aws sns list-subscriptions-by-topic` | both subscriptions confirmed (not `PendingConfirmation`) |
+
+Everything above matched the documentation. The one thing that didn't:
+
+**A real gap found, not assumed: two live test-fires of real CloudWatch alarms produced no
+observable SNS delivery at all.** Using `aws cloudwatch set-alarm-state` (AWS's own
+documented way to test alarm actions without waiting for a real threshold breach),
+`devops-g5-pos-5xx` and, separately, `devops-g5-pos-unhealthy` were each forced from `OK` to
+`ALARM` and back. `describe-alarm-history` confirms both were genuine, timestamped state
+transitions, and both alarms have `ActionsEnabled: true` with `AlarmActions`/`OKActions`
+correctly pointing at `devops-g5-alerts`. But across a 20+ minute window spanning both
+test-fires:
+- `AWS/SNS` `NumberOfMessagesPublished` for the topic: zero datapoints.
+- `AWS/Lambda` `Invocations` for `devops-g5-slack-notifier`: zero datapoints.
+- `/aws/lambda/devops-g5-slack-notifier` logs: empty.
+
+Static configuration review (topic policy, the Lambda's resource policy, `AlarmActions`
+ARNs) found nothing wrong - which is exactly why this only surfaced by actually rehearsing
+the path instead of reading the Terraform. **Not yet root-caused**: it may be that
+`SetAlarmState`-driven transitions behave differently than a real threshold breach for this
+account/topic combination, or a genuine delivery gap that would affect real alerts too - the
+difference matters and isn't resolved yet.
+
+**Conclusion:** the runbook's investigative commands and links are all accurate and usable
+during a real incident - that part of the rehearsal passed outright. Whether an alarm
+reaching `ALARM` actually reaches a human being is now an open, confirmed-uncertain
+question, not a confirmed-working one as the runbook currently implies. That's a more
+important finding than any of the passing checks above.
+
+**Follow-ups (tracked in `docs/production-readiness.md`):**
+- Confirm with whoever owns `tillflow4@gmail.com` whether either test-fire's email actually
+  arrived - the one check this drill couldn't perform itself.
+- If it didn't: root-cause why a `CloudWatch Alarm -> SNS Topic -> {email, Lambda}` path with
+  correct-looking IAM/topic policy doesn't deliver - candidates include SNS's own delivery
+  retry/backoff behavior, a mismatch between the account's actual default region and where
+  the alarm/topic/subscription each believe they are, or a still-undiscovered policy gap.
+- Once fixed, re-run this exact test-fire and confirm a real SNS publish + Lambda invocation
+  this time, then update this drill's entry with the corrected result rather than opening a
+  new one.
