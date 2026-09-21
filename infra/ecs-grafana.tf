@@ -1,8 +1,21 @@
-# Same bootstrap-placeholder pattern as ecs-task-def.tf's pos_image_tag.
+# Same pattern as infra/ecs-task-def.tf's pos_image_tag/pos_current — see that file's
+# comments for the full rationale (a hardcoded "bootstrap" default here silently reverted a
+# real running image on every apply without an explicit -var override, including CI's own
+# terraform plan job).
 variable "grafana_image_tag" {
-  description = "Bootstrap-only image tag. The real running revision is owned by the deploy pipeline after the first deploy."
+  description = "Explicit image tag override. Leave unset (default) and terraform reuses whatever tag is currently live instead of reverting it. Only pass -var to force a specific tag: a genuine first-ever bootstrap on a fresh account with no task definition yet, or a deliberate manual rollback."
   type        = string
-  default     = "bootstrap"
+  default     = null
+}
+
+data "aws_ecs_task_definition" "grafana_current" {
+  task_definition = "${var.name_prefix}-grafana"
+}
+
+locals {
+  grafana_image = var.grafana_image_tag != null ? "${aws_ecr_repository.grafana.repository_url}:${var.grafana_image_tag}" : [
+    for c in jsondecode(data.aws_ecs_task_definition.grafana_current.container_definitions) : c.image if c.name == "grafana"
+  ][0]
 }
 
 # A real credential (unlike web's SESSION_SECRET, which only signs a cookie) - this one
@@ -38,7 +51,7 @@ resource "aws_ecs_task_definition" "grafana" {
   container_definitions = jsonencode([
     {
       name                   = "grafana"
-      image                  = "${aws_ecr_repository.grafana.repository_url}:${var.grafana_image_tag}"
+      image                  = local.grafana_image
       essential              = true
       readonlyRootFilesystem = true
       linuxParameters = {

@@ -313,26 +313,36 @@ automatic rotation (documented security trade-off) or wire an EventBridge rule o
 rotation event that force-redeploys all three DB-dependent services. Gap 2's code fix exists
 but needs a real deploy to prove it catches this class of failure live, not just in tests.
 
-## Task definition image tags silently default to a nonexistent placeholder
+## ~~Task definition image tags silently default to a nonexistent placeholder~~ — fixed 2026-09-21
 
 **`pos_image_tag`/`payments_image_tag`/`commission_image_tag`/`web_image_tag`/
-`grafana_image_tag` all default to `"bootstrap"`, a tag that was never actually pushed to
-ECR for real** - real deploys have only ever pushed SHA tags, driven entirely by CI directly
+`grafana_image_tag` used to all default to `"bootstrap"`, a tag that was never actually pushed
+to ECR for real** - real deploys have only ever pushed SHA tags, driven entirely by CI directly
 updating each `aws_ecs_service` to a new revision (`lifecycle.ignore_changes =
-[task_definition]`, so Terraform never sees or records what CI actually deployed). This
-means Terraform's own idea of "the current image" has been stale since each service's first
-real deploy, and any `terraform apply` that registers a new task definition revision for any
+[task_definition]`, so Terraform never saw or recorded what CI actually deployed). This meant
+Terraform's own idea of "the current image" was stale from each service's first real deploy
+onward, and any `terraform apply` that registered a new task definition revision for any
 reason - not just an image change, *any* change to that resource - without an explicit
-`-var="<service>_image_tag=<real sha>"` override will silently produce a revision pointing
-at a nonexistent image. Confirmed live and the hard way, not by inspection:
-`docs/scar-log.md`'s "three compounding incidents" - a real `terraform apply` for an
-unrelated env-var change did exactly this to `pos` and `commission`, producing
-`CannotPullContainerError: ...:bootstrap: not found` the moment either was deployed. Owner:
-sharon2719. Revisit: before the next infra change touches any ECS task definition - either
-always pass the current real SHA as a `-var` (fragile, relies on remembering), or replace the
-variable with a `data "aws_ecs_task_definition"` lookup against the live service so Terraform
-reads the actually-running image instead of trusting a variable that's only ever correct by
-coincidence.
+`-var="<service>_image_tag=<real sha>"` override silently produced a revision pointing at a
+nonexistent image. Confirmed live and the hard way, not by inspection: `docs/scar-log.md`'s
+"three compounding incidents" - a real `terraform apply` for an unrelated env-var change did
+exactly this to `pos` and `commission`, producing `CannotPullContainerError:
+...:bootstrap: not found` the moment either was deployed. Recurred a second way: CI's own
+`terraform plan` job (PR #20) runs without any manual `-var` override, so it independently hit
+the same bug and proposed reverting `pos` back to `:bootstrap` on every PR, not just on a
+manual apply.
+
+**Real fix**: each `variable "<service>_image_tag"` now defaults to `null` instead of
+`"bootstrap"`, and each service file adds a `data "aws_ecs_task_definition"
+"<service>_current"` reading the live, currently-ACTIVE revision by family name. A `local.
+<service>_image` uses the `-var` override when one is explicitly passed, otherwise reads the
+real running image straight out of that data source's `container_definitions`. Verified live:
+`terraform plan` with **no** `-var` overrides at all now reuses the actual live image tag
+(even picking up a newer real deploy than the SHA this doc's authors had been manually
+pinning) instead of proposing a revert to `:bootstrap`. The one real tradeoff, documented
+inline in each `.tf` file: this data lookup only works once a family has at least one real
+revision - a genuine from-scratch bootstrap on a brand-new account still needs the tag passed
+explicitly the first time, since there'd be nothing live yet to read.
 
 ## Registry-wide scanning (see also docs/adr/0005-shared-account-boundaries.md)
 
