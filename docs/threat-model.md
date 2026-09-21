@@ -1,8 +1,9 @@
-# Threat model (draft)
+# Threat model
 
 Scope: TillFlow's POS + payments + commission system, as described in
 `docs/architecture.md`. STRIDE-style pass over the request path and trust boundaries.
-Draft — to be refined before the G0 defence and re-checked at G4.
+Re-checked at G4/G5 against what was actually verified live, not just what was designed -
+see the corrections below and `docs/scar-log.md` for what that re-check found.
 
 ## Assets
 
@@ -32,10 +33,14 @@ Draft — to be refined before the G0 defence and re-checked at G4.
 | 4 | Daraja credentials or DB credentials leaked via logs, Terraform state, or a build log | Information disclosure | Secrets Manager only; JSON log fields are allow-listed, never a raw request/response dump; `SLACK_WEBHOOK_URL` and all secrets excluded from Git, state and CI logs per the brief |
 | 5 | Commission worker compromised or bugged into calling Daraja directly, bypassing Payments' idempotency/reconciliation logic | Elevation of privilege, Tampering | Architectural boundary: Commission has no Daraja credentials or network path to Daraja at all, only an internal call to Payments' B2C endpoint — enforced by IAM/security-group scoping, not just code convention |
 | 6 | Overly broad IAM roles let a compromised task pivot to unrelated AWS resources | Elevation of privilege | Per-service least-privilege task roles, one per service, scoped to only that service's schema/queue/secret |
-| 7 | A broken release silently ships bad money logic | Tampering | Post-deploy smoke tests gate promotion; ECS rollback path proven in G4, not just documented |
+| 7 | A broken release silently ships bad money logic | Tampering | Post-deploy smoke tests gate promotion; ECS's deployment circuit breaker is configured on every service (`enable_circuit_breaker`) - **but its automatic rollback was not observed to fire during a real broken deploy** (`docs/recovery-drills.md` drill 4, found live, not staged), so this mitigation is only partially verified: the broken deploy was caught (real errors, real events, no silent failure), but whether it self-heals without a human noticing and intervening manually within a reasonable window is genuinely unconfirmed |
+| 8 | A security-relevant alarm (e.g. unexpected IAM activity, a credential-leak scanner finding, repeated auth failures) fires but never reaches anyone | Repudiation | Was a real, confirmed gap, not hypothetical: CloudWatch's native alarm-to-SNS mechanism didn't fire on this account for any alarm, security-relevant or not (`docs/recovery-drills.md` drill 2). Fixed via an independent EventBridge-based delivery path (`infra/alarm-eventbridge-bridge.tf`), verified end to end with a real alarm reaching Slack in seconds - but the original CloudWatch mechanism's root cause remains unexplained, so this is a worked-around risk, not a definitively closed one |
 
 ## Out of scope for this pass
 
-Web application session/auth mechanics beyond tenant scoping (to be detailed once
-`services/web` exists), physical device security for the till hardware, and Safaricom-side
-Daraja security (out of TillFlow's control).
+Physical device security for the till hardware, and Safaricom-side Daraja security (out of
+TillFlow's control). `services/web`'s own session mechanics are minimal by design and
+already covered, not deferred: a `random_password` Terraform-generated `SESSION_SECRET`
+signs a cookie carrying only the caller's own API key - `web` holds no database and no
+tenant data of its own, so there's no additional session-store attack surface to model here
+beyond what pos/payments/commission's own tenant-scoping already covers.

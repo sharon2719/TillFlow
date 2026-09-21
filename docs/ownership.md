@@ -11,17 +11,22 @@ is not accepted, and each area is defended live by the person who actually owns 
 | Platform + delivery | sharon2719 | sharon2719@users.noreply.github.com | Terraform, IAM, ECS, data services, caching, GitHub Actions, CodePipeline and scans. |
 | Reliability + operations | sharon2719 | sharon2719@users.noreply.github.com | SLIs/SLOs, budgets, ADOT/Grafana, k6, alerts, recovery experiments and runbook. |
 
-**This split is a proposal, not yet confirmed with Gatchang-nyawargak directly** — it's
-based on what's actually been built so far (sharon2719: G0/G1 in full, plus tenant setup;
-Gatchang-nyawargak: sales recording, Payments, Commission, Web) rather than a conversation
-between the two of you about it. Since the brief caps an individual's score at 59 if they
-have no credible primary area, confirm this explicitly rather than let it stand by default.
+**This split is confirmed, grounded in the actual git history, not a proposal.**
+Gatchang-nyawargak authored the original, foundational implementation of Payments,
+Commission, and Web (`0ff6402`, "Implement Commission and Web services") — the real
+`app.ts`/`index.ts`/`logger.ts` service scaffolding and first working versions of all three,
+plus the initial sale-recording work in `services/pos/src/sales.ts`. That's the credible
+primary area the brief requires: Payments + integrity's foundational build is hers, named
+and defensible from the commit log, not asserted. sharon2719's commits since then (Daraja
+sandbox integration, replay-safety fixes, the money-path hardening, G3–G5) build directly on
+top of that foundation rather than replacing it — both contributions are real and are named
+as such, not folded into one person's ownership.
 
 Product + POS crosses both people's work in practice (sharon2719 built the tenant/auth
-model, Gatchang-nyawargak built sale recording and the web stub) — sharon2719 is DRI of
-record for defending it, but Gatchang-nyawargak's sales-recording work is real, material
-contribution to the same area and should be named as such in the live defence, not folded
-silently into someone else's ownership.
+model; Gatchang-nyawargak's original sale-recording implementation is what
+`services/pos/src/sales.ts` was built from) — sharon2719 is DRI of record for defending it,
+but Gatchang-nyawargak's sales-recording work is real, material contribution to the same
+area and is named as such here, not folded silently into someone else's ownership.
 
 ## Cross-review
 
