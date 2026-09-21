@@ -27,6 +27,38 @@ resource "aws_secretsmanager_secret_version" "slack_webhook_url" {
   }
 }
 
+# Duplicate Slack posts confirmed live, root-caused before fixing rather than guessed at:
+# a single isolated real alarm transition produced two genuinely distinct SNS MessageIds
+# (ruled out "SNS redelivering the same message" - each one successfully claimed its own
+# dedup slot). The real source is EventBridge's own at-least-once delivery from
+# infra/alarm-eventbridge-bridge.tf's rule to its SNS target - a retry there produces a
+# brand-new SNS Publish with a new MessageId but identical content. So this table keys on a
+# hash of the message CONTENT, not the SNS envelope ID - see
+# infra/lambda/slack-notifier/index.mjs's claimMessage(). Same dedup shape
+# services/commission/src/worker.ts already uses for its own at-least-once SQS delivery,
+# just keyed differently since the duplication source here isn't the same one. TTL keeps it
+# small - duplicate deliveries happen within seconds of each other in practice, an hour is
+# generous headroom, not a guess at the real window.
+resource "aws_dynamodb_table" "slack_notifier_dedup" {
+  name         = "${var.name_prefix}-slack-notifier-dedup"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "contentHash"
+
+  attribute {
+    name = "contentHash"
+    type = "S"
+  }
+
+  ttl {
+    attribute_name = "expiresAt"
+    enabled        = true
+  }
+
+  tags = {
+    service = "platform"
+  }
+}
+
 data "archive_file" "slack_notifier" {
   type        = "zip"
   source_dir  = "${path.module}/lambda/slack-notifier"
@@ -71,6 +103,20 @@ resource "aws_iam_role_policy" "slack_notifier_secret" {
   policy = data.aws_iam_policy_document.slack_notifier_secret.json
 }
 
+data "aws_iam_policy_document" "slack_notifier_dedup" {
+  statement {
+    sid       = "DedupSlackNotifications"
+    actions   = ["dynamodb:PutItem"]
+    resources = [aws_dynamodb_table.slack_notifier_dedup.arn]
+  }
+}
+
+resource "aws_iam_role_policy" "slack_notifier_dedup" {
+  name   = "${var.name_prefix}-slack-notifier-dedup"
+  role   = aws_iam_role.slack_notifier.id
+  policy = data.aws_iam_policy_document.slack_notifier_dedup.json
+}
+
 resource "aws_cloudwatch_log_group" "slack_notifier" {
   name              = "/aws/lambda/${var.name_prefix}-slack-notifier"
   retention_in_days = 14
@@ -96,6 +142,7 @@ resource "aws_lambda_function" "slack_notifier" {
       ENVIRONMENT_NAME         = "production"
       DASHBOARD_URL            = "https://${var.region}.console.aws.amazon.com/cloudwatch/home?region=${var.region}#dashboards:name=${aws_cloudwatch_dashboard.overview.dashboard_name}"
       RUNBOOK_URL              = "https://github.com/sharon2719/TillFlow/blob/master/docs/runbook.md"
+      DEDUP_TABLE_NAME         = aws_dynamodb_table.slack_notifier_dedup.name
     }
   }
 

@@ -1,10 +1,21 @@
-# Same bootstrap-placeholder pattern as infra/ecs-task-def.tf's pos_image_tag: Terraform
-# owns this task definition's shape, the deploy pipeline owns which image is actually
-# running (see ecs-service.tf's ignore_changes = [task_definition], mirrored below).
+# Same pattern as infra/ecs-task-def.tf's pos_image_tag/pos_current — see that file's
+# comments for the full rationale (a hardcoded "bootstrap" default here silently reverted a
+# real running image on every apply without an explicit -var override, including CI's own
+# terraform plan job).
 variable "payments_image_tag" {
-  description = "Bootstrap-only image tag. The real running revision is owned by the deploy pipeline after the first deploy."
+  description = "Explicit image tag override. Leave unset (default) and terraform reuses whatever tag is currently live instead of reverting it. Only pass -var to force a specific tag: a genuine first-ever bootstrap on a fresh account with no task definition yet, or a deliberate manual rollback."
   type        = string
-  default     = "bootstrap"
+  default     = null
+}
+
+data "aws_ecs_task_definition" "payments_current" {
+  task_definition = "${var.name_prefix}-payments"
+}
+
+locals {
+  payments_image = var.payments_image_tag != null ? "${aws_ecr_repository.payments.repository_url}:${var.payments_image_tag}" : [
+    for c in jsondecode(data.aws_ecs_task_definition.payments_current.container_definitions) : c.image if c.name == "payments"
+  ][0]
 }
 
 # --- Daraja credentials: real external credentials from Safaricom's own developer portal
@@ -51,7 +62,7 @@ resource "aws_ecs_task_definition" "payments" {
   container_definitions = jsonencode([
     {
       name                   = "payments"
-      image                  = "${aws_ecr_repository.payments.repository_url}:${var.payments_image_tag}"
+      image                  = local.payments_image
       essential              = true
       readonlyRootFilesystem = true
       linuxParameters = {

@@ -202,6 +202,42 @@ discovered after the fact - the opposite of overstating what's solid. Documented
 full because a scar log that only records other people's incidents and skips its own isn't
 honest about what "real mistakes" means.
 
+## A "confirmed broken" claim turned out to be wrong - a real fix's own side effect proved it
+
+After building the EventBridge alarm-delivery bridge (the previous scar), Slack started
+receiving two messages per alarm transition instead of one. First hypothesis: SNS's own
+documented at-least-once delivery redelivering the same message - tested live, disproven
+(a single isolated transition produced two genuinely distinct SNS `MessageId`s, each
+correctly claiming its own dedup slot against a naive implementation keyed on that ID).
+Second hypothesis: EventBridge's own at-least-once delivery to its SNS target producing two
+copies of the same content - built a content-hash dedup key to catch that, deployed it,
+tested live again, **it didn't fire either**. Rather than guess a third time, captured and
+compared the two actual raw SNS message bodies directly. They were completely different
+shapes: one was the EventBridge bridge's minimal transformed JSON, exactly as designed - the
+other was CloudWatch's own **native**, full-detail alarm notification format, the exact
+mechanism `docs/recovery-drills.md` drill 2 had already tested multiple times and concluded
+"does not result in CloudWatch calling `sns:Publish` at all."
+
+**That conclusion was wrong.** Not fabricated - it was a real, repeatable result from every
+test actually run - but every one of those tests checked within seconds to a few minutes,
+and it turns out the native mechanism does eventually deliver, just unreliably, with delay
+long enough that a short, deliberate test window can't distinguish "broken" from "slow."
+The EventBridge bridge (built specifically because the native path looked dead) is still the
+right fix - reliable, fast delivery beats an unpredictable one regardless - but it was built
+believing it was replacing something dead, when it was actually running *alongside*
+something merely erratic, which is exactly what caused the duplicate messages this whole
+investigation started from. Fixed properly with a dedup key built from the *parsed* semantic
+fields (`AlarmName`/`NewStateValue`/`NewStateReason`), the one thing guaranteed identical
+across two wildly different message shapes describing the same real transition.
+
+**Lesson kept, and it's a sharper version of a lesson this log already has twice:** a
+negative result ("X doesn't happen") from a finite set of live tests is only as strong as
+the test window - "confirmed broken" and "not observed within the windows tried" are
+different claims, and this log had been writing the stronger one. The correction didn't come
+from doubting the earlier work; it came from a *different* real bug (the duplicate messages)
+forcing a fresh, direct look at raw data instead of trusting a conclusion that had already
+been written down as settled.
+
 ## Recurring, smaller ones worth naming once instead of repeating silently
 
 - **Windows/Git-Bash path translation** bit file writes more than once: a Node/Python

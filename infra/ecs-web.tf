@@ -1,9 +1,21 @@
-# Same bootstrap-placeholder pattern as ecs-task-def.tf's pos_image_tag: Terraform owns
-# this task definition's shape, the deploy pipeline owns which image is actually running.
+# Same pattern as infra/ecs-task-def.tf's pos_image_tag/pos_current — see that file's
+# comments for the full rationale (a hardcoded "bootstrap" default here silently reverted a
+# real running image on every apply without an explicit -var override, including CI's own
+# terraform plan job).
 variable "web_image_tag" {
-  description = "Bootstrap-only image tag. The real running revision is owned by the deploy pipeline after the first deploy."
+  description = "Explicit image tag override. Leave unset (default) and terraform reuses whatever tag is currently live instead of reverting it. Only pass -var to force a specific tag: a genuine first-ever bootstrap on a fresh account with no task definition yet, or a deliberate manual rollback."
   type        = string
-  default     = "bootstrap"
+  default     = null
+}
+
+data "aws_ecs_task_definition" "web_current" {
+  task_definition = "${var.name_prefix}-web"
+}
+
+locals {
+  web_image = var.web_image_tag != null ? "${aws_ecr_repository.web.repository_url}:${var.web_image_tag}" : [
+    for c in jsondecode(data.aws_ecs_task_definition.web_current.container_definitions) : c.image if c.name == "web"
+  ][0]
 }
 
 # Signs the session cookie in services/web/src/session.ts - not a credential of its own,
@@ -26,7 +38,7 @@ resource "aws_ecs_task_definition" "web" {
   container_definitions = jsonencode([
     {
       name                   = "web"
-      image                  = "${aws_ecr_repository.web.repository_url}:${var.web_image_tag}"
+      image                  = local.web_image
       essential              = true
       readonlyRootFilesystem = true
       linuxParameters = {

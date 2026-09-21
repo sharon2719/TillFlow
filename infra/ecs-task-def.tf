@@ -1,13 +1,33 @@
-# The container image tag here is a bootstrap placeholder only. Once the CI pipeline does
-# its first real deploy, it registers a new task definition revision pointing at the actual
-# commit-SHA image and calls UpdateService directly (see aws_ecs_service's
-# ignore_changes = [task_definition] in ecs-service.tf) — Terraform owns the task
-# definition's *shape*, the pipeline owns which revision is actually running, so the two
-# don't fight each other on every apply.
+# Once the CI pipeline does its first real deploy, it registers a new task definition
+# revision pointing at the actual commit-SHA image and calls UpdateService directly (see
+# aws_ecs_service's ignore_changes = [task_definition] in ecs-service.tf) — Terraform owns
+# the task definition's *shape*, the pipeline owns which revision is actually running, so the
+# two don't fight each other on every apply.
+#
+# The tag itself defaults to whatever's actually live (see data.aws_ecs_task_definition.pos_current
+# below), not a hardcoded placeholder — a bare "bootstrap" default here silently reverted a real
+# running image back to a tag that was never pushed to ECR on every apply that didn't pass an
+# explicit -var override, including CI's own terraform plan job. See
+# docs/production-readiness.md.
 variable "pos_image_tag" {
-  description = "Bootstrap-only image tag. The real running revision is owned by the deploy pipeline after the first deploy."
+  description = "Explicit image tag override. Leave unset (default) and terraform reuses whatever tag is currently live instead of reverting it. Only pass -var to force a specific tag: a genuine first-ever bootstrap on a fresh account with no task definition yet, or a deliberate manual rollback."
   type        = string
-  default     = "bootstrap"
+  default     = null
+}
+
+# Reads the currently ACTIVE revision so a plain apply/plan never proposes reverting a real
+# deployed image. Only works once the family has at least one real revision — true for every
+# service in this already-deployed account; a genuine from-scratch bootstrap on a brand-new
+# account still needs pos_image_tag passed explicitly the first time, since this lookup would
+# have nothing to find.
+data "aws_ecs_task_definition" "pos_current" {
+  task_definition = "${var.name_prefix}-pos"
+}
+
+locals {
+  pos_image = var.pos_image_tag != null ? "${aws_ecr_repository.pos.repository_url}:${var.pos_image_tag}" : [
+    for c in jsondecode(data.aws_ecs_task_definition.pos_current.container_definitions) : c.image if c.name == "pos"
+  ][0]
 }
 
 resource "aws_ecs_task_definition" "pos" {
@@ -22,7 +42,7 @@ resource "aws_ecs_task_definition" "pos" {
   container_definitions = jsonencode([
     {
       name      = "pos"
-      image     = "${aws_ecr_repository.pos.repository_url}:${var.pos_image_tag}"
+      image     = local.pos_image
       essential = true
       # Non-root already at the Dockerfile level (see services/pos/Dockerfile); this closes
       # out the "read-only" half of the golden path's container pattern. /tmp is the only

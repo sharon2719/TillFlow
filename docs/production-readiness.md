@@ -50,8 +50,7 @@ webhook URL read from Secrets Manager. Verification history, in order:
 4. **Fixed for real via two live-diagnosed changes, not a guess**: `infra/alarm-eventbridge-bridge.tf`
    adds an EventBridge rule that catches "CloudWatch Alarm State Change" events independently
    of an alarm's own `AlarmActions` (proven via a live diagnostic that CloudWatch's native
-   mechanism fails even against a fresh unencrypted topic - the root cause there remains
-   genuinely unexplained, worked around rather than fixed). That EventBridge path had its
+   mechanism fails even against a fresh unencrypted topic). That EventBridge path had its
    own, separate blocker - KMS encryption on the alerts topic, isolated via a second live
    diagnostic (identical EventBridge target against a fresh encrypted vs. unencrypted topic)
    - fixed by removing `aws_sns_topic.alerts`'s KMS encryption (`infra/monitoring.tf`; the
@@ -61,13 +60,24 @@ webhook URL read from Secrets Manager. Verification history, in order:
    `devops-g5-pos-5xx` with `set-alarm-state`, confirmed the Lambda ran within 3 seconds via
    `CloudWatch -> EventBridge -> SNS -> Lambda`, and the owner visually confirmed the message
    in Slack.
+6. **Corrected same day, by more live evidence**: the claim that CloudWatch's native
+   `AlarmActions` mechanism "doesn't work on this account at all" was itself wrong. Found
+   while debugging an unrelated duplicate-Slack-message issue (`docs/scar-log.md`): captured
+   and compared the two duplicate SNS messages directly, and one of them was CloudWatch's own
+   native, full-detail alarm format - which every earlier short test window in this
+   investigation had happened to miss. **The corrected claim: the native mechanism is
+   unreliable/delayed, not dead** - it fires, just not within the seconds-to-low-minutes
+   windows this repo's live diagnostics used to test it. The EventBridge bridge is still the
+   right fix (it's fast and reliable, the native path apparently isn't either), and the
+   duplicate-delivery side effect this discovery caused is fixed with a semantic
+   (parsed-field) dedup key in the Slack Lambda, since the two paths' message shapes differ
+   completely even when describing the same transition.
 
-Owner: sharon2719. **What's still genuinely open**: why CloudWatch's own native
-`AlarmActions` mechanism doesn't work on this account at all - the EventBridge bridge is a
-durable, correct fix for real alert delivery, not a workaround pretending to be a fix, but
-it doesn't explain the original mystery. If that's ever wanted, next step is checking for an
-AWS Organizations guardrail or filing an AWS Support case - not diagnosable further from the
-CLI surface available to this IAM role.
+Owner: sharon2719. **What's still genuinely open**: why the native mechanism is unreliable
+rather than simply slow by a fixed, predictable amount. The EventBridge bridge is a durable,
+correct fix for real alert delivery regardless of the answer - if the underlying "why" is
+ever wanted, next step is checking for an AWS Organizations guardrail or filing an AWS
+Support case, not diagnosable further from the CLI surface available to this IAM role.
 
 ## Daraja integration (see also services/_shared/src/daraja-adapter.ts)
 
@@ -303,26 +313,36 @@ automatic rotation (documented security trade-off) or wire an EventBridge rule o
 rotation event that force-redeploys all three DB-dependent services. Gap 2's code fix exists
 but needs a real deploy to prove it catches this class of failure live, not just in tests.
 
-## Task definition image tags silently default to a nonexistent placeholder
+## ~~Task definition image tags silently default to a nonexistent placeholder~~ — fixed 2026-09-21
 
 **`pos_image_tag`/`payments_image_tag`/`commission_image_tag`/`web_image_tag`/
-`grafana_image_tag` all default to `"bootstrap"`, a tag that was never actually pushed to
-ECR for real** - real deploys have only ever pushed SHA tags, driven entirely by CI directly
+`grafana_image_tag` used to all default to `"bootstrap"`, a tag that was never actually pushed
+to ECR for real** - real deploys have only ever pushed SHA tags, driven entirely by CI directly
 updating each `aws_ecs_service` to a new revision (`lifecycle.ignore_changes =
-[task_definition]`, so Terraform never sees or records what CI actually deployed). This
-means Terraform's own idea of "the current image" has been stale since each service's first
-real deploy, and any `terraform apply` that registers a new task definition revision for any
+[task_definition]`, so Terraform never saw or recorded what CI actually deployed). This meant
+Terraform's own idea of "the current image" was stale from each service's first real deploy
+onward, and any `terraform apply` that registered a new task definition revision for any
 reason - not just an image change, *any* change to that resource - without an explicit
-`-var="<service>_image_tag=<real sha>"` override will silently produce a revision pointing
-at a nonexistent image. Confirmed live and the hard way, not by inspection:
-`docs/scar-log.md`'s "three compounding incidents" - a real `terraform apply` for an
-unrelated env-var change did exactly this to `pos` and `commission`, producing
-`CannotPullContainerError: ...:bootstrap: not found` the moment either was deployed. Owner:
-sharon2719. Revisit: before the next infra change touches any ECS task definition - either
-always pass the current real SHA as a `-var` (fragile, relies on remembering), or replace the
-variable with a `data "aws_ecs_task_definition"` lookup against the live service so Terraform
-reads the actually-running image instead of trusting a variable that's only ever correct by
-coincidence.
+`-var="<service>_image_tag=<real sha>"` override silently produced a revision pointing at a
+nonexistent image. Confirmed live and the hard way, not by inspection: `docs/scar-log.md`'s
+"three compounding incidents" - a real `terraform apply` for an unrelated env-var change did
+exactly this to `pos` and `commission`, producing `CannotPullContainerError:
+...:bootstrap: not found` the moment either was deployed. Recurred a second way: CI's own
+`terraform plan` job (PR #20) runs without any manual `-var` override, so it independently hit
+the same bug and proposed reverting `pos` back to `:bootstrap` on every PR, not just on a
+manual apply.
+
+**Real fix**: each `variable "<service>_image_tag"` now defaults to `null` instead of
+`"bootstrap"`, and each service file adds a `data "aws_ecs_task_definition"
+"<service>_current"` reading the live, currently-ACTIVE revision by family name. A `local.
+<service>_image` uses the `-var` override when one is explicitly passed, otherwise reads the
+real running image straight out of that data source's `container_definitions`. Verified live:
+`terraform plan` with **no** `-var` overrides at all now reuses the actual live image tag
+(even picking up a newer real deploy than the SHA this doc's authors had been manually
+pinning) instead of proposing a revert to `:bootstrap`. The one real tradeoff, documented
+inline in each `.tf` file: this data lookup only works once a family has at least one real
+revision - a genuine from-scratch bootstrap on a brand-new account still needs the tag passed
+explicitly the first time, since there'd be nothing live yet to read.
 
 ## Registry-wide scanning (see also docs/adr/0005-shared-account-boundaries.md)
 
