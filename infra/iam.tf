@@ -617,6 +617,7 @@ data "aws_iam_policy_document" "ci_deploy_infra" {
       "dynamodb:UpdateTable",
       "dynamodb:DescribeTimeToLive",
       "dynamodb:UpdateTimeToLive",
+      "dynamodb:DescribeContinuousBackups", # the provider checks PITR status on every read of the resource, not just when it's enabled
       "dynamodb:TagResource",
       "dynamodb:UntagResource",
       "dynamodb:ListTagsOfResource",
