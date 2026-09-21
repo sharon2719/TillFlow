@@ -4,9 +4,48 @@
 // the webhook URL in Secrets Manager. AWS Lambda's Node 22 runtime ships the AWS SDK v3
 // pre-installed, so this needs no bundled node_modules - the zip is just this one file.
 import { GetSecretValueCommand, SecretsManagerClient } from "@aws-sdk/client-secrets-manager";
+import { ConditionalCheckFailedException, DynamoDBClient, PutItemCommand } from "@aws-sdk/client-dynamodb";
+import { createHash } from "node:crypto";
 import https from "node:https";
 
 const secretsClient = new SecretsManagerClient({});
+const dynamoClient = new DynamoDBClient({});
+
+// Duplicate deliveries here are neither "SNS redelivering the same message" (ruled out
+// live: a single isolated alarm transition produced two genuinely distinct SNS MessageIds,
+// each successfully claimed against a raw-content hash - so that wasn't it either) nor even
+// a single delivery mechanism retrying. Captured and compared the two raw message bodies
+// directly: CloudWatch's own NATIVE alarm-to-SNS action turns out to still work on this
+// account - just unreliably/with enough delay that every earlier short, deliberate test
+// window (docs/recovery-drills.md drill 2) missed it - while infra/alarm-eventbridge-
+// bridge.tf's independent rule ALSO delivers. Both fire for the same real transition, each
+// producing SNS messages with genuinely different JSON shapes (CloudWatch's native format
+// carries AlarmArn/Trigger/OKActions/etc; the EventBridge bridge's input-transformed one is
+// a minimal 3-field object) - so a raw-content hash can never match between them. The
+// semantic fields both shapes carry (AlarmName/NewStateValue/NewStateReason) are identical
+// either way, so the dedup key has to be computed AFTER parsing, not from the raw body.
+async function claimMessage(alarmName, newStateValue, newStateReason) {
+  const contentHash = createHash("sha256").update(`${alarmName}\u0000${newStateValue}\u0000${newStateReason}`).digest("hex");
+  const expiresAt = Math.floor(Date.now() / 1000) + 3600; // 1h TTL - duplicates arrive within seconds in practice
+  try {
+    await dynamoClient.send(
+      new PutItemCommand({
+        TableName: process.env.DEDUP_TABLE_NAME,
+        Item: { contentHash: { S: contentHash }, expiresAt: { N: String(expiresAt) } },
+        ConditionExpression: "attribute_not_exists(contentHash)",
+      }),
+    );
+    return true; // first time seeing this exact content - proceed
+  } catch (err) {
+    if (err instanceof ConditionalCheckFailedException) {
+      return false; // already claimed by an earlier delivery of the same content - a duplicate
+    }
+    // Any other failure (e.g. DynamoDB unavailable): fail open rather than silently drop a
+    // real alert - a rare double-post is a much smaller problem than a missed one.
+    console.log(JSON.stringify({ msg: "dedup check failed, proceeding anyway (fail open)", error: String(err) }));
+    return true;
+  }
+}
 
 // Keyed by the alarm-name suffix (see infra/monitoring.tf and infra/burn-rate-alerts.tf for
 // the actual names) - covers every alarm kind that exists today. An alarm added later that
@@ -129,6 +168,13 @@ export const handler = async (event) => {
 
   for (const record of event.Records) {
     const message = JSON.parse(record.Sns.Message);
+
+    const isNew = await claimMessage(message.AlarmName, message.NewStateValue, message.NewStateReason);
+    if (!isNew) {
+      console.log(JSON.stringify({ msg: "duplicate alert (same alarm/state/reason via a different delivery path), skipping Slack post", messageId: record.Sns.MessageId }));
+      continue;
+    }
+
     const { service, symptom, impact, firstSafeAction } = classify(message.AlarmName);
     const owner = SERVICE_OWNERS[service] ?? "sharon2719";
     const emoji = message.NewStateValue === "ALARM" ? "🔴" : "🟢";

@@ -163,11 +163,32 @@ torn down after):
    CloudWatch -> EventBridge -> SNS -> Lambda path, and the owner visually confirmed the
    message arrived in Slack.
 
-**The runbook and production-readiness docs have been updated to reflect this as fixed, not
-open.** The one piece still genuinely unresolved is *why* CloudWatch's own native
-`AlarmActions` mechanism doesn't work on this account - the EventBridge bridge is a durable,
-correct fix for real alert delivery, not a fragile patch, but it doesn't explain the
-original mystery, which remains open if anyone wants to chase it with AWS Support.
+**Second follow-up, same day (2026-09-21): the claim that CloudWatch's native mechanism
+"doesn't work at all" was itself wrong, corrected by more live evidence, not by guessing.**
+While debugging an unrelated problem (Slack receiving duplicate notifications per alarm
+transition - see the dedup entry in `docs/scar-log.md`), the two duplicate SNS messages
+were captured and compared directly. One was the EventBridge bridge's minimal transformed
+JSON, as expected - the other was CloudWatch's own **native**, full-detail alarm
+notification format (`AlarmArn`, `Trigger`, `OKActions`, etc.), which every earlier test in
+this drill had concluded never arrives. It does arrive - just unreliably, with enough delay
+that every short, deliberate test window in this drill's earlier rounds (each checked within
+seconds to low minutes) happened to miss it. **Corrected claim: CloudWatch's native
+`AlarmActions` -> SNS mechanism is not dead, it's unreliable/delayed in a way this drill's
+own test methodology couldn't distinguish from "broken" until a real, unplanned duplicate
+delivery caught it in the act.** The EventBridge bridge remains the right fix regardless -
+it delivers reliably and fast (seconds), which the native path apparently doesn't - but the
+earlier "genuinely unexplained, confirmed not working" framing overstated what was actually
+shown. Fixed for real this time with a semantic (parsed AlarmName/NewStateValue/
+NewStateReason) dedup key in the Slack Lambda, since the two paths' SNS messages are
+byte-for-byte different (different shape, different envelope) even when describing the same
+real transition - a naive content-hash or MessageId-based dedup (both tried first, both
+failed live) can't catch that.
+
+**The runbook and production-readiness docs have been updated to reflect this corrected
+understanding**, not the original "doesn't work at all" claim. What's still genuinely
+unresolved is *why* the native mechanism is unreliable rather than simply slow by a fixed,
+predictable amount - not diagnosable further from the CLI surface available here, still
+worth an AWS Support case if anyone wants the real answer.
 
 ## Incident 1 — payments crash-looping on a rotated RDS password (not a drill - found live)
 

@@ -50,8 +50,7 @@ webhook URL read from Secrets Manager. Verification history, in order:
 4. **Fixed for real via two live-diagnosed changes, not a guess**: `infra/alarm-eventbridge-bridge.tf`
    adds an EventBridge rule that catches "CloudWatch Alarm State Change" events independently
    of an alarm's own `AlarmActions` (proven via a live diagnostic that CloudWatch's native
-   mechanism fails even against a fresh unencrypted topic - the root cause there remains
-   genuinely unexplained, worked around rather than fixed). That EventBridge path had its
+   mechanism fails even against a fresh unencrypted topic). That EventBridge path had its
    own, separate blocker - KMS encryption on the alerts topic, isolated via a second live
    diagnostic (identical EventBridge target against a fresh encrypted vs. unencrypted topic)
    - fixed by removing `aws_sns_topic.alerts`'s KMS encryption (`infra/monitoring.tf`; the
@@ -61,13 +60,24 @@ webhook URL read from Secrets Manager. Verification history, in order:
    `devops-g5-pos-5xx` with `set-alarm-state`, confirmed the Lambda ran within 3 seconds via
    `CloudWatch -> EventBridge -> SNS -> Lambda`, and the owner visually confirmed the message
    in Slack.
+6. **Corrected same day, by more live evidence**: the claim that CloudWatch's native
+   `AlarmActions` mechanism "doesn't work on this account at all" was itself wrong. Found
+   while debugging an unrelated duplicate-Slack-message issue (`docs/scar-log.md`): captured
+   and compared the two duplicate SNS messages directly, and one of them was CloudWatch's own
+   native, full-detail alarm format - which every earlier short test window in this
+   investigation had happened to miss. **The corrected claim: the native mechanism is
+   unreliable/delayed, not dead** - it fires, just not within the seconds-to-low-minutes
+   windows this repo's live diagnostics used to test it. The EventBridge bridge is still the
+   right fix (it's fast and reliable, the native path apparently isn't either), and the
+   duplicate-delivery side effect this discovery caused is fixed with a semantic
+   (parsed-field) dedup key in the Slack Lambda, since the two paths' message shapes differ
+   completely even when describing the same transition.
 
-Owner: sharon2719. **What's still genuinely open**: why CloudWatch's own native
-`AlarmActions` mechanism doesn't work on this account at all - the EventBridge bridge is a
-durable, correct fix for real alert delivery, not a workaround pretending to be a fix, but
-it doesn't explain the original mystery. If that's ever wanted, next step is checking for an
-AWS Organizations guardrail or filing an AWS Support case - not diagnosable further from the
-CLI surface available to this IAM role.
+Owner: sharon2719. **What's still genuinely open**: why the native mechanism is unreliable
+rather than simply slow by a fixed, predictable amount. The EventBridge bridge is a durable,
+correct fix for real alert delivery regardless of the answer - if the underlying "why" is
+ever wanted, next step is checking for an AWS Organizations guardrail or filing an AWS
+Support case, not diagnosable further from the CLI surface available to this IAM role.
 
 ## Daraja integration (see also services/_shared/src/daraja-adapter.ts)
 
