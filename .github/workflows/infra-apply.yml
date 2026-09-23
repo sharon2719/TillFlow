@@ -23,13 +23,44 @@ permissions:
   contents: read
 
 jobs:
-  apply:
-    name: terraform apply (manually triggered - see workflow header)
+  plan:
+    name: terraform plan (saved artifact for gated apply)
     runs-on: ubuntu-latest
-    # Kept associated with the infra-apply environment for audit visibility in the repo's
-    # Environments tab, even without a reviewer gate on this plan - if this repo ever moves
-    # to a plan with environment protection rules, adding a required reviewer here is the
-    # only change needed to get the originally-intended stronger gate back.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.8"
+
+      - name: Assume the ci-deploy role via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::240462142849:role/devops-g5-ci-deploy
+          aws-region: eu-west-1
+
+      - name: terraform plan
+        working-directory: infra
+        run: |
+          terraform init -input=false
+          terraform plan -input=false -out=tfplan
+          terraform show -no-color tfplan > tfplan.txt
+
+      - name: Upload reviewed plan artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-plan-${{ github.run_id }}
+          path: |
+            infra/tfplan
+            infra/tfplan.txt
+          retention-days: 7
+
+  apply:
+    name: terraform apply (the saved plan artifact)
+    needs: plan
+    runs-on: ubuntu-latest
+    # Apply the exact plan produced above after the environment gate, rather than creating
+    # a new plan after approval.
     environment:
       name: infra-apply
     steps:
@@ -45,8 +76,14 @@ jobs:
           role-to-assume: arn:aws:iam::240462142849:role/devops-g5-ci-deploy
           aws-region: eu-west-1
 
-      - name: terraform apply
+      - name: Download reviewed plan artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: terraform-plan-${{ github.run_id }}
+          path: infra
+
+      - name: Apply reviewed plan
         working-directory: infra
         run: |
           terraform init -input=false
-          terraform apply -input=false -auto-approve
+          terraform apply -input=false tfplan
