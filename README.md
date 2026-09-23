@@ -1,125 +1,207 @@
 # TillFlow
 
-Multi-tenant POS + M-Pesa (Daraja) payments, on AWS ECS. Solo capstone build — see
-`docs/ownership.md` for why every area still names one DRI even with a group of one.
+TillFlow is a multi-tenant point-of-sale platform with M-Pesa payments, commission
+payouts, and operational recovery evidence. It runs on AWS ECS Fargate in `eu-west-1`.
 
-## Status (2026-09-21)
+The project follows this delivery loop:
 
-**All gates (G0–G5) are done and live in AWS**, not just written up. The short version of
-what's real, with pointers to the actual proof rather than a claim to take on faith:
+```text
+Decide -> Design -> Plan -> Review -> Apply -> Prove -> Release -> Recover
+```
 
-- **G0/G1 (Decide/Platform):** VPC, ECS cluster running `pos`/`payments`/`commission`/`web`
-  behind an internal ALB, an ADOT sidecar per task, ECR (SHA-tagged images only, no
-  `latest`), a public API Gateway HTTP API, RDS, ElastiCache, SQS+DLQ+EventBridge. Real
-  CI/CD: `.github/workflows/deploy-*.yml` build/push/migrate/deploy/smoke-test per service,
-  `ci.yml` runs a real `terraform plan` on every PR via OIDC, `infra-apply.yml` applies on
-  merge. Naming/tag and `latest`-tag compliance verified live, not from static review —
-  `evidence/platform-delivery/`.
-- **G2 (Product):** tenant setup, sale recording, Payments (real Daraja sandbox integration,
-  STK + B2C both directions, real inbound callback observed live), and Commission (calls
-  Payments over HTTP only, replay-safe, cannot double-pay) all proven end to end against the
-  real deployed stack — `evidence/payments-integrity/`, `evidence/product-pos/`.
-- **G3 (Operate):** self-hosted Grafana with real burn-rate/budget-remaining panels, an
-  external synthetic probe (a plain scheduled Lambda — CloudWatch Synthetics genuinely
-  cannot run in this account, confirmed by a real failed apply, see `docs/scar-log.md`), the
-  full k6 suite (smoke/baseline/spike/15-min soak), and a capacity report built from real
-  numbers, not estimates — `docs/capacity-report.md`.
-- **G4 (Recover):** four documented drills, two of them found live rather than staged —
-  `docs/recovery-drills.md`. Includes a real production incident (a rotated RDS credential
-  silently crash-looping `payments`, caught by accident and fixed same-day) and a real
-  broken-deploy scenario (a latent Terraform bug, also fixed, with the deployment circuit
-  breaker's auto-rollback honestly left unresolved since it hadn't fired before manual
-  intervention).
-- **G5 (Release):** evidence pack, `docs/scar-log.md` (real mistakes, including three
-  self-inflicted incidents from this session, not a sanitized list), `docs/defence-prep.md`,
-  real AWS Cost Explorer data (`docs/cost-and-teardown.md`), and a fully live, end-to-end
-  verified alerting pipeline — see below.
+The repository is deliberately evidence-led. A gate is not marked complete until its
+blocking check has been executed and captured in `evidence/` or the linked operational
+documentation.
 
-**Alerting works end to end, and getting there required finding and fixing a genuine
-account-level bug**, not just wiring a Lambda. CloudWatch's native alarm→SNS mechanism
-doesn't fire on this account for a reason that's still unexplained; alarms are now delivered
-via an independent EventBridge rule instead (`infra/alarm-eventbridge-bridge.tf`), which
-itself needed a second, separate fix (removing SNS encryption, isolated via a live
-diagnostic). Verified by firing a real alarm and watching it reach Slack in seconds. Full
-account in `docs/recovery-drills.md` drill 2 and `docs/scar-log.md`.
+## Current gate status
 
-This README updated as each gate landed, not written once at the end — the git history is
-the actual timeline.
+| Gate | Area | Status | Source of truth |
+|---|---|---|---|
+| G0 | Decide | PASS | [Ownership and ADRs](docs/ownership.md) |
+| G1 | Platform | PASS with fixes | [Platform evidence](evidence/platform-delivery/), [architecture](docs/architecture.md) |
+| G2 | Product | PASS | [Payments evidence](evidence/payments-integrity/), [POS evidence](evidence/product-pos/) |
+| G3 | Operate | HOLD | [Recovery drills](docs/recovery-drills.md), [capacity report](docs/capacity-report.md) |
+| G4 | Recover | HOLD | [Recovery drills](docs/recovery-drills.md) |
+| G5 | Release | HOLD | [Cost and teardown](docs/cost-and-teardown.md) |
+
+G3 still needs the captured alert firing-to-recovery cycle and the two money-flow traces.
+G4 still needs the callback replay/reorder and DLQ redrive drills. G5 still needs an
+executed destroy -> rebuild -> live-200 run. These are open work, not implied by the
+existence of a written plan.
+
+## Mission and acceptance bar
+
+TillFlow must demonstrate more than a deployed web page. The acceptance bar is:
+
+- private ECS services can be reached through the public API Gateway path;
+- sales, payments, callbacks, and commission payouts preserve money-flow invariants;
+- replay and timeout behavior cannot create a second payment or payout;
+- an operator can detect, diagnose, recover, and prove a failure;
+- an approved Terraform plan is the exact plan that gets applied;
+- the workload can eventually be destroyed and rebuilt from the repository.
+
+## Architecture
+
+```text
+Public client
+    |
+    v
+API Gateway HTTP API
+    | VPC Link
+    v
+Internal Application Load Balancer
+    |
+    +--> pos        default route
+    +--> payments   /api/v1/payments/*
+    +--> commission /api/v1/commission/*
+    +--> web        /
+    +--> grafana    /grafana/*
+
+pos, payments, commission
+    +--> PostgreSQL RDS, schema per service
+    +--> Secrets Manager
+    +--> ADOT collector sidecar -> CloudWatch and X-Ray
+
+pos        +--> ElastiCache Redis read-through auth cache
+commission +--> SQS queue + DLQ <- EventBridge Scheduler
+payments   +--> Daraja OAuth, STK, B2C, callbacks, and reconciliation
+```
+
+All five ECS services run in private subnets with no public task IPs. The ALB is the
+single application entry point behind API Gateway. Commission calls Payments over HTTP;
+it does not call Daraja directly. This keeps real disbursement behavior in one bounded
+context and makes replay safety testable.
+
+See [architecture.md](docs/architecture.md) for the full request path, trade-offs, and
+deliberate non-goals.
+
+## Repository map
+
+```text
+services/
+  _shared/       shared types, errors, logging, and test helpers
+  pos/           tenant, auth, and sale recording
+  payments/      Daraja integration, payment state, callbacks, reconciliation
+  commission/    payout API and scheduled queue worker
+  web/           server-rendered BFF and POS interface
+  grafana/       dashboards and datasource provisioning
+
+infra/           Terraform for the AWS workload
+infra/bootstrap/ separate remote-state bootstrap stack
+load-tests/      k6 smoke, baseline, spike, soak, and Daraja contract tests
+docs/            architecture, ADRs, runbooks, drills, SLOs, and decisions
+evidence/        captured runtime output and verification records
+.github/workflows/ CI, security scans, deploy workflows, and gated infra apply
+```
+
+## Ownership
+
+Every primary area has one named DRI, while cross-review is required before a gate closes.
+
+| Area | DRI | Responsibility |
+|---|---|---|
+| Product and POS | sharon2719 | tenant model, frontend flow, sales, contracts |
+| Payments and integrity | Gatchang-nyawargak | Daraja, callbacks, idempotency, replay, payouts |
+| Platform and delivery | sharon2719 | Terraform, IAM, ECS, data services, CI/CD |
+| Reliability and operations | sharon2719 | SLOs, telemetry, alerts, drills, runbooks |
+
+See [ownership.md](docs/ownership.md) for the contribution history, cross-review rule,
+and CODEOWNERS details.
 
 ## Prerequisites
 
-- Node.js 22, npm 10+
+- Node.js 22 and npm 10+
 - Docker
-- Terraform ~1.9+ (validated against 1.15 locally)
-- An AWS account with credentials configured for `eu-west-1` (see `docs/adr/0002-region.md`)
+- Terraform 1.9+
+- AWS credentials for `eu-west-1`
+- k6 for load-test execution
 
-## Stand up the Terraform backend (one-time, by hand)
+## Local development
 
-```bash
-cd infra/bootstrap
-terraform init
-terraform apply   # creates the tfstate bucket + lock table
-terraform output  # copy these into infra/backend.tf, then terraform init there too
-```
-
-## Bootstrap / run locally
+Install dependencies and run the checks for a service:
 
 ```bash
 npm install
 npm run typecheck --workspace=@tillflow/pos
 npm run test --workspace=@tillflow/pos
-npm run dev --workspace=@tillflow/pos   # http://localhost:3000/health
+npm run dev --workspace=@tillflow/pos
 ```
 
-Same pattern for `payments`, `commission`, and `web` (see each `services/<name>/package.json`).
-`services/payments` additionally needs `DARAJA_*` env vars to use the real adapter instead of
-the deterministic `FakeMpesaAdapter` — see `services/payments/.env.daraja.example`.
+The POS health endpoint is available at `http://localhost:3000/health`. The same commands
+work for `payments`, `commission`, and `web`; use each service's `package.json` for its
+port and required environment. Payments needs the `DARAJA_*` variables from
+`services/payments/.env.daraja.example` when using the real adapter.
 
-## Build a service image
+## Infrastructure workflow
+
+The backend is bootstrapped once, separately from the workload stack:
 
 ```bash
-docker build -f services/pos/Dockerfile -t tillflow-pos:local .
-docker run --rm -p 3000:3000 tillflow-pos:local
+cd infra/bootstrap
+terraform init
+terraform apply
+terraform output
 ```
 
-## Load testing
+Copy the backend outputs into `infra/backend.tf`, then initialize the main stack:
 
-`load-tests/` has the full k6 suite (smoke against real AWS, baseline/spike/soak against a
-local stack so nothing hammers the real Daraja sandbox, plus a small real-sandbox contract
-test) — see `docs/load-tests.md` for exactly how each was run and what it found.
-
-## Repo layout
-
-See the brief's required mono-repo layout, reproduced as-built in `docs/architecture.md`.
-Short version:
-
-```
-services/    pos, payments, commission, web (all live in AWS), _shared
-infra/       Terraform: bootstrap (applied) + main stack (VPC/ECS/ALB/ECR/API GW/RDS/
-             ElastiCache/SQS/EventBridge/Grafana/alarms/EventBridge alert bridge — all applied)
-load-tests/  full k6 suite: smoke, baseline, spike, soak, Daraja sandbox contract test
-.github/     CI (checks + real terraform plan) + deploy-{pos,payments,commission,web,grafana}
-             + infra-apply (manual-trigger)
-docs/        ownership, architecture, ADRs, SLOs, threat model, runbook, recovery drills,
-             capacity report, cost/teardown, scar log, defence prep, production-readiness log
-evidence/    per-area runtime proof - real command output and live test results, not
-             narrated claims
+```bash
+cd infra
+terraform init
+terraform plan -out=tfplan
+terraform show -no-color tfplan
+terraform apply tfplan
 ```
 
-## Gates
+For GitHub Actions, pull requests run a real Terraform plan and fail-closed security
+scans. The manually triggered infrastructure workflow creates a saved plan artifact,
+waits at the `infra-apply` environment boundary, and applies that exact plan. It does
+not generate a fresh plan with `-auto-approve`.
 
-All decided in `docs/ownership.md` and the ADRs, all closed out for real - see `docs/
-defence-prep.md` for the full walkthrough (design, trade-offs, PRs, failure behavior, proof,
-and a worked cross-system diagnosis) and `docs/scar-log.md` for what actually went wrong
-along the way and what changed as a result.
+Service deploy workflows build immutable commit-SHA images, push them to ECR, run any
+required migration, update ECS, and verify the public endpoint. `latest` is not an
+accepted release tag.
 
-## Cost / cleanup
+## Verification and evidence
 
-Real Cost Explorer data (not an estimate), see `docs/cost-and-teardown.md` for the full
-breakdown and methodology: TillFlow's own attributable cost is roughly **$48/day** at full
-G1–G4 build-out, isolated from this shared account's ~$30/day pre-existing baseline (unrelated
-resources that predate this repo). Top drivers: the NAT gateway, ECS Fargate compute across
-five services, and the shared RDS instance. `terraform destroy` + reapply is documented and
-ready but deliberately not run against the live demo stack until someone is actively watching
-each step - see `docs/cost-and-teardown.md` for why and the exact plan. `infra/bootstrap`
-(S3 + DynamoDB, near-zero cost) can stay up indefinitely regardless.
+The most useful starting points are:
+
+- [Money-path invariants](evidence/payments-integrity/money-path-invariants-2026-09-18.md)
+- [Daraja sandbox verification](evidence/payments-integrity/daraja-sandbox-verification-2026-09-16.md)
+- [POS API verification](evidence/product-pos/pos-api-verification-2026-09-18.md)
+- [Recovery drills](docs/recovery-drills.md)
+- [Capacity and load-test report](docs/capacity-report.md)
+- [Production readiness](docs/production-readiness.md)
+- [Scar log](docs/scar-log.md)
+- [Defence preparation](docs/defence-prep.md)
+
+Run the repository-level checks with:
+
+```bash
+npm run typecheck --workspace=@tillflow/pos
+npm run test --workspace=@tillflow/pos
+terraform fmt -check -recursive infra/
+```
+
+The k6 commands and their safety boundaries are documented in
+[load-tests.md](docs/load-tests.md). The baseline, spike, and soak tests should not be
+pointed at the live Daraja sandbox.
+
+## Cost and teardown
+
+The deployed stack costs roughly `$48/day` at the full G1-G4 footprint, separate from a
+pre-existing shared-account baseline of roughly `$30/day`. The major drivers are the NAT
+gateway, ECS Fargate, CloudWatch, RDS, and the shared ALB.
+
+The workload destroy -> rebuild procedure is documented in
+[cost-and-teardown.md](docs/cost-and-teardown.md), including the required pre-destroy
+inventory, secret restoration, post-rebuild deployment, and wall-clock RTO measurement.
+The remote-state bootstrap stack is separate and must remain outside workload teardown.
+
+## Further reading
+
+- [Architecture decisions](docs/adr/0001-tech-stack.md)
+- [Threat model](docs/threat-model.md)
+- [Runbook](docs/runbook.md)
+- [SLOs and error budgets](docs/slo-error-budgets.md)
+- [Release freeze policy](docs/release-freeze-policy.md)

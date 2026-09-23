@@ -87,7 +87,7 @@ resource "aws_ecs_task_definition" "pos" {
         }
       }
       dependsOn = [
-        { containerName = "aws-otel-collector", condition = "START" }
+        { containerName = "aws-otel-collector", condition = "HEALTHY" }
       ]
     },
     {
@@ -108,6 +108,13 @@ resource "aws_ecs_task_definition" "pos" {
         tmpfs = [
           { containerPath = "/tmp", size = 64 }
         ]
+      }
+      healthCheck = {
+        command     = ["CMD", "/healthcheck"]
+        interval    = 10
+        timeout     = 5
+        retries     = 3
+        startPeriod = 10
       }
       environment = [
         { name = "AWS_REGION", value = var.region }
