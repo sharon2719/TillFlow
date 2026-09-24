@@ -123,6 +123,9 @@ Every primary area has one named DRI, while cross-review is required before a ga
 | Platform and delivery | sharon2719 | Terraform, IAM, ECS, data services, CI/CD |
 | Reliability and operations | sharon2719 | SLOs, telemetry, alerts, drills, runbooks |
 
+Gatchang-nyawargak also authored the original sale-recording implementation in
+`services/pos/src/sales.ts`; sharon2719 is DRI of record for Product and POS.
+
 See [ownership.md](docs/ownership.md) for the contribution history, cross-review rule,
 and CODEOWNERS details.
 
