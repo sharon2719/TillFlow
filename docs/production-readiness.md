@@ -6,6 +6,30 @@ owner and a revisit trigger, per the brief's requirement to log accepted risk ra
 silently ignore a scan finding. "Fixed later" items belong in `docs/scar-log.md` instead —
 this file is for things being knowingly left as-is right now.
 
+## Repo maturity / governance
+
+This repo follows the same structure expected in a mature capstone handoff: a named DRI per
+area, CODEOWNERS coverage for the owning paths, and an evidence-first gate model where every
+status claim is backed by a committed artifact.
+
+The repo conventions are intentionally simple and durable:
+
+- `CODEOWNERS` declares the owner for every operational area;
+- `docs/ownership.md` defines the DRI for product, platform, payments, and reliability;
+- `docs/all-gates-review-follow-up.md` maps each review finding to a repo artifact or open gap;
+- `infra/scripts/bootstrap.sh`, `deploy.sh`, and `destroy.sh` provide a standard lifecycle
+  wrapper around the Terraform actions; and
+- every gate remains "in progress" until its proof is committed under `evidence/` and linked
+  from the relevant operational doc.
+
+Repo maturity work and live gate execution are separate workstreams. Governance files and
+review mapping may be complete while G3, G4, and G5 remain open for real runtime proof.
+No gate is marked `PASS` until its dated evidence exists, is committed under `evidence/`,
+is linked from the README or gate document, and proves the complete requested flow.
+
+This is the capstone-grade pattern expected by basket reviews: strong technical delivery plus
+clear ownership, reproducible lifecycle steps, and real evidence rather than a verbal claim.
+
 ## External synthetic probe (see also infra/external-probe.tf)
 
 **Built as a plain scheduled Lambda, not CloudWatch Synthetics - confirmed as a real account
@@ -59,7 +83,8 @@ webhook URL read from Secrets Manager. Verification history, in order:
 5. **Re-verified end to end via the real path**, not a component test: fired
    `devops-g5-pos-5xx` with `set-alarm-state`, confirmed the Lambda ran within 3 seconds via
    `CloudWatch -> EventBridge -> SNS -> Lambda`, and the owner visually confirmed the message
-   in Slack.
+   in Slack. The owner-verified Slack notification is captured in
+   [evidence/group-5-slack-alert.png](../evidence/group-5-slack-alert.png).
 6. **Corrected same day, by more live evidence**: the claim that CloudWatch's native
    `AlarmActions` mechanism "doesn't work on this account at all" was itself wrong. Found
    while debugging an unrelated duplicate-Slack-message issue (`docs/scar-log.md`): captured

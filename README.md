@@ -15,19 +15,37 @@ documentation.
 
 ## Current gate status
 
-| Gate | Area | Status | Source of truth |
-|---|---|---|---|
-| G0 | Decide | PASS | [Ownership and ADRs](docs/ownership.md) |
-| G1 | Platform | PASS with fixes | [Platform evidence](evidence/platform-delivery/), [architecture](docs/architecture.md) |
-| G2 | Product | PASS | [Payments evidence](evidence/payments-integrity/), [POS evidence](evidence/product-pos/) |
-| G3 | Operate | HOLD | [Recovery drills](docs/recovery-drills.md), [capacity report](docs/capacity-report.md) |
-| G4 | Recover | HOLD | [Recovery drills](docs/recovery-drills.md) |
-| G5 | Release | HOLD | [Cost and teardown](docs/cost-and-teardown.md) |
+The repo follows an evidence-first gate model: a gate is only marked PASS once its required
+proof is captured and committed. G3, G4, and G5 are under active verification and are not
+claimed complete until the live evidence is recorded.
 
-G3 still needs the captured alert firing-to-recovery cycle and the two money-flow traces.
-G4 still needs the callback replay/reorder and DLQ redrive drills. G5 still needs an
-executed destroy -> rebuild -> live-200 run. These are open work, not implied by the
-existence of a written plan.
+Repo governance and review mapping are implemented. The remaining work is live gate-evidence
+execution, rather than additional repo scaffolding:
+
+1. G3 alert firing -> recovery evidence;
+2. G3 sale/payment/callback trace;
+3. G3 scheduled commission trace;
+4. G4 callback replay/reorder drill;
+5. G4 DLQ redrive drill;
+6. G5 destroy -> rebuild -> live-200 run;
+7. final README and documentation status pass;
+8. final repo-wide consistency review.
+
+**Status rule:** do not mark any gate `PASS` until its dated evidence file exists, is
+committed under `evidence/`, linked from the relevant README or gate document, and proves
+the complete requested flow. Capture and document the real evidence before changing gate
+status.
+
+## Repository conventions
+
+This repo follows the same capstone conventions expected in a final defence handoff:
+
+- named ownership per area via [docs/ownership.md](docs/ownership.md) and [CODEOWNERS](CODEOWNERS);
+- evidence-led status tracking, with gate claims backed by committed artifacts under
+  [evidence/](evidence/);
+- reproducible operational wrappers in [infra/scripts](infra/scripts/);
+- explicit review follow-up in [docs/all-gates-review-follow-up.md](docs/all-gates-review-follow-up.md);
+- known risk tracking in [docs/production-readiness.md](docs/production-readiness.md).
 
 ## Mission and acceptance bar
 
