@@ -2,7 +2,7 @@
   "name": "tillflow",
   "private": true,
   "version": "0.0.0",
-  "description": "Multi-tenant POS + M-Pesa payments capstone (solo build).",
+  "description": "Multi-tenant POS + M-Pesa payments capstone.",
   "workspaces": [
     "services/*"
   ],

@@ -160,8 +160,9 @@ torn down after):
 3. **Verified end to end for real**, not just component-by-component: fired
    `devops-g5-pos-5xx` via `set-alarm-state` (a genuine state transition, not a direct
    publish/invoke), confirmed the Lambda ran within 3 seconds via the real
-   CloudWatch -> EventBridge -> SNS -> Lambda path, and the owner visually confirmed the
-   message arrived in Slack.
+  CloudWatch -> EventBridge -> SNS -> Lambda path, and the owner visually confirmed the
+  message arrived in Slack. The captured Slack notification is committed at
+  [evidence/group-5-slack-alert.png](../evidence/group-5-slack-alert.png).
 
 **Second follow-up, same day (2026-09-21): the claim that CloudWatch's native mechanism
 "doesn't work at all" was itself wrong, corrected by more live evidence, not by guessing.**

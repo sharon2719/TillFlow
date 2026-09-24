@@ -1,0 +1,375 @@
+# G3 alert firing and recovery
+UTC start: 2026-09-23T17:26:35Z
+Alarm: devops-g5-pos-5xx
+Region: eu-west-1
+
+## Initial state
+{
+    "MetricAlarms": [
+        {
+            "AlarmName": "devops-g5-pos-5xx",
+            "AlarmArn": "arn:aws:cloudwatch:eu-west-1:240462142849:alarm:devops-g5-pos-5xx",
+            "AlarmDescription": "pos target group returned a 5xx - see docs/runbook.md",
+            "AlarmConfigurationUpdatedTimestamp": "2026-09-16T15:19:00.476000+03:00",
+            "ActionsEnabled": true,
+            "OKActions": [
+                "arn:aws:sns:eu-west-1:240462142849:devops-g5-alerts"
+            ],
+            "AlarmActions": [
+                "arn:aws:sns:eu-west-1:240462142849:devops-g5-alerts"
+            ],
+            "InsufficientDataActions": [],
+            "StateValue": "OK",
+            "StateReason": "Threshold Crossed: no datapoints were received for 1 period and 1 missing datapoint was treated as [NonBreaching].",
+            "StateReasonData": "{\"version\":\"1.0\",\"queryDate\":\"2026-09-23T17:23:27.416+0000\",\"statistic\":\"Sum\",\"period\":300,\"recentDatapoints\":[],\"threshold\":1.0,\"evaluatedDatapoints\":[{\"timestamp\":\"2026-09-23T17:16:00.000+0000\"}]}",
+            "StateUpdatedTimestamp": "2026-09-23T20:23:27.417000+03:00",
+            "MetricName": "HTTPCode_Target_5XX_Count",
+            "Namespace": "AWS/ApplicationELB",
+            "Statistic": "Sum",
+            "Dimensions": [
+                {
+                    "Name": "LoadBalancer",
+                    "Value": "app/devops-g5-alb/e051239450c15c98"
+                },
+                {
+                    "Name": "TargetGroup",
+                    "Value": "targetgroup/devops-g5-pos-tg/82b63f0b888ec77f"
+                }
+            ],
+            "Period": 300,
+            "EvaluationPeriods": 1,
+            "Threshold": 1.0,
+            "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+            "TreatMissingData": "notBreaching",
+            "StateTransitionedTimestamp": "2026-09-23T20:23:27.417000+03:00"
+        }
+    ],
+    "CompositeAlarms": [],
+    "LogAlarms": []
+}
+
+## Set ALARM
+
+## ALARM state
+{
+    "MetricAlarms": [
+        {
+            "AlarmName": "devops-g5-pos-5xx",
+            "AlarmArn": "arn:aws:cloudwatch:eu-west-1:240462142849:alarm:devops-g5-pos-5xx",
+            "AlarmDescription": "pos target group returned a 5xx - see docs/runbook.md",
+            "AlarmConfigurationUpdatedTimestamp": "2026-09-16T15:19:00.476000+03:00",
+            "ActionsEnabled": true,
+            "OKActions": [
+                "arn:aws:sns:eu-west-1:240462142849:devops-g5-alerts"
+            ],
+            "AlarmActions": [
+                "arn:aws:sns:eu-west-1:240462142849:devops-g5-alerts"
+            ],
+            "InsufficientDataActions": [],
+            "StateValue": "ALARM",
+            "StateReason": "G3 evidence test 2026-09-23T17:26:35Z",
+            "StateUpdatedTimestamp": "2026-09-23T20:27:41.817000+03:00",
+            "MetricName": "HTTPCode_Target_5XX_Count",
+            "Namespace": "AWS/ApplicationELB",
+            "Statistic": "Sum",
+            "Dimensions": [
+                {
+                    "Name": "LoadBalancer",
+                    "Value": "app/devops-g5-alb/e051239450c15c98"
+                },
+                {
+                    "Name": "TargetGroup",
+                    "Value": "targetgroup/devops-g5-pos-tg/82b63f0b888ec77f"
+                }
+            ],
+            "Period": 300,
+            "EvaluationPeriods": 1,
+            "Threshold": 1.0,
+            "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+            "TreatMissingData": "notBreaching",
+            "StateTransitionedTimestamp": "2026-09-23T20:27:41.817000+03:00"
+        }
+    ],
+    "CompositeAlarms": [],
+    "LogAlarms": []
+}
+
+## Alarm history
+{
+    "AlarmHistoryItems": [
+        {
+            "AlarmName": "devops-g5-pos-5xx",
+            "AlarmType": "MetricAlarm",
+            "Timestamp": "2026-09-23T20:27:41.817000+03:00",
+            "HistoryItemType": "StateUpdate",
+            "HistorySummary": "Alarm updated from OK to ALARM",
+            "HistoryData": "{\"version\":\"1.0\",\"oldState\":{\"stateValue\":\"OK\",\"stateReason\":\"Threshold Crossed: no datapoints were received for 1 period and 1 missing datapoint was treated as [NonBreaching].\",\"stateReasonData\":{\"version\":\"1.0\",\"queryDate\":\"2026-09-23T17:23:27.416+0000\",\"statistic\":\"Sum\",\"period\":300,\"recentDatapoints\":[],\"threshold\":1.0,\"evaluatedDatapoints\":[{\"timestamp\":\"2026-09-23T17:16:00.000+0000\"}]}},\"newState\":{\"stateValue\":\"ALARM\",\"stateReason\":\"G3 evidence test 2026-09-23T17:26:35Z\"}}"
+        },
+        {
+            "AlarmName": "devops-g5-pos-5xx",
+            "AlarmType": "MetricAlarm",
+            "Timestamp": "2026-09-23T20:23:27.417000+03:00",
+            "HistoryItemType": "StateUpdate",
+            "HistorySummary": "Alarm updated from ALARM to OK",
+            "HistoryData": "{\"version\":\"1.0\",\"oldState\":{\"stateValue\":\"ALARM\",\"stateReason\":\"G3 evidence test 2026-09-23T17:22:12Z\"},\"newState\":{\"stateValue\":\"OK\",\"stateReason\":\"Threshold Crossed: no datapoints were received for 1 period and 1 missing datapoint was treated as [NonBreaching].\",\"stateReasonData\":{\"version\":\"1.0\",\"queryDate\":\"2026-09-23T17:23:27.416+0000\",\"statistic\":\"Sum\",\"period\":300,\"recentDatapoints\":[],\"threshold\":1.0,\"evaluatedDatapoints\":[{\"timestamp\":\"2026-09-23T17:16:00.000+0000\"}]}}}"
+        },
+        {
+            "AlarmName": "devops-g5-pos-5xx",
+            "AlarmType": "MetricAlarm",
+            "Timestamp": "2026-09-23T20:22:24.994000+03:00",
+            "HistoryItemType": "StateUpdate",
+            "HistorySummary": "Alarm updated from OK to ALARM",
+            "HistoryData": "{\"version\":\"1.0\",\"oldState\":{\"stateValue\":\"OK\",\"stateReason\":\"G3 evidence recovery 2026-09-23T17:12:31Z\"},\"newState\":{\"stateValue\":\"ALARM\",\"stateReason\":\"G3 evidence test 2026-09-23T17:22:12Z\"}}"
+        },
+        {
+            "AlarmName": "devops-g5-pos-5xx",
+            "AlarmType": "MetricAlarm",
+            "Timestamp": "2026-09-23T20:12:50.697000+03:00",
+            "HistoryItemType": "StateUpdate",
+            "HistorySummary": "Alarm updated from ALARM to OK",
+            "HistoryData": "{\"version\":\"1.0\",\"oldState\":{\"stateValue\":\"ALARM\",\"stateReason\":\"G3 evidence test 2026-09-23T17:12:31Z\"},\"newState\":{\"stateValue\":\"OK\",\"stateReason\":\"G3 evidence recovery 2026-09-23T17:12:31Z\"}}"
+        },
+        {
+            "AlarmName": "devops-g5-pos-5xx",
+            "AlarmType": "MetricAlarm",
+            "Timestamp": "2026-09-23T20:12:34.452000+03:00",
+            "HistoryItemType": "StateUpdate",
+            "HistorySummary": "Alarm updated from OK to ALARM",
+            "HistoryData": "{\"version\":\"1.0\",\"oldState\":{\"stateValue\":\"OK\",\"stateReason\":\"cleanup after dedup fix verification\"},\"newState\":{\"stateValue\":\"ALARM\",\"stateReason\":\"G3 evidence test 2026-09-23T17:12:31Z\"}}"
+        },
+        {
+            "AlarmName": "devops-g5-pos-5xx",
+            "AlarmType": "MetricAlarm",
+            "Timestamp": "2026-09-21T18:32:37.623000+03:00",
+            "HistoryItemType": "StateUpdate",
+            "HistorySummary": "Alarm updated from ALARM to OK",
+            "HistoryData": "{\"version\":\"1.0\",\"oldState\":{\"stateValue\":\"ALARM\",\"stateReason\":\"Verifying the semantic dedup fix\"},\"newState\":{\"stateValue\":\"OK\",\"stateReason\":\"cleanup after dedup fix verification\"}}"
+        },
+        {
+            "AlarmName": "devops-g5-pos-5xx",
+            "AlarmType": "MetricAlarm",
+            "Timestamp": "2026-09-21T18:32:03.925000+03:00",
+            "HistoryItemType": "StateUpdate",
+            "HistorySummary": "Alarm updated from OK to ALARM",
+            "HistoryData": "{\"version\":\"1.0\",\"oldState\":{\"stateValue\":\"OK\",\"stateReason\":\"Threshold Crossed: no datapoints were received for 1 period and 1 missing datapoint was treated as [NonBreaching].\",\"stateReasonData\":{\"version\":\"1.0\",\"queryDate\":\"2026-09-21T15:31:02.787+0000\",\"statistic\":\"Sum\",\"period\":300,\"recentDatapoints\":[],\"threshold\":1.0,\"evaluatedDatapoints\":[{\"timestamp\":\"2026-09-21T15:24:00.000+0000\"}]}},\"newState\":{\"stateValue\":\"ALARM\",\"stateReason\":\"Verifying the semantic dedup fix\"}}"
+        },
+        {
+            "AlarmName": "devops-g5-pos-5xx",
+            "AlarmType": "MetricAlarm",
+            "Timestamp": "2026-09-21T18:31:02.788000+03:00",
+            "HistoryItemType": "StateUpdate",
+            "HistorySummary": "Alarm updated from ALARM to OK",
+            "HistoryData": "{\"version\":\"1.0\",\"oldState\":{\"stateValue\":\"ALARM\",\"stateReason\":\"Diagnostic raw message capture\"},\"newState\":{\"stateValue\":\"OK\",\"stateReason\":\"Threshold Crossed: no datapoints were received for 1 period and 1 missing datapoint was treated as [NonBreaching].\",\"stateReasonData\":{\"version\":\"1.0\",\"queryDate\":\"2026-09-21T15:31:02.787+0000\",\"statistic\":\"Sum\",\"period\":300,\"recentDatapoints\":[],\"threshold\":1.0,\"evaluatedDatapoints\":[{\"timestamp\":\"2026-09-21T15:24:00.000+0000\"}]}}}"
+        },
+        {
+            "AlarmName": "devops-g5-pos-5xx",
+            "AlarmType": "MetricAlarm",
+            "Timestamp": "2026-09-21T18:30:12.038000+03:00",
+            "HistoryItemType": "StateUpdate",
+            "HistorySummary": "Alarm updated from OK to ALARM",
+            "HistoryData": "{\"version\":\"1.0\",\"oldState\":{\"stateValue\":\"OK\",\"stateReason\":\"Threshold Crossed: no datapoints were received for 1 period and 1 missing datapoint was treated as [NonBreaching].\",\"stateReasonData\":{\"version\":\"1.0\",\"queryDate\":\"2026-09-21T15:29:52.987+0000\",\"statistic\":\"Sum\",\"period\":300,\"recentDatapoints\":[],\"threshold\":1.0,\"evaluatedDatapoints\":[{\"timestamp\":\"2026-09-21T15:22:00.000+0000\"}]}},\"newState\":{\"stateValue\":\"ALARM\",\"stateReason\":\"Diagnostic raw message capture\"}}"
+        },
+        {
+            "AlarmName": "devops-g5-pos-5xx",
+            "AlarmType": "MetricAlarm",
+            "Timestamp": "2026-09-21T18:29:52.988000+03:00",
+            "HistoryItemType": "StateUpdate",
+            "HistorySummary": "Alarm updated from ALARM to OK",
+            "HistoryData": "{\"version\":\"1.0\",\"oldState\":{\"stateValue\":\"ALARM\",\"stateReason\":\"Verifying the content-hash dedup fix\"},\"newState\":{\"stateValue\":\"OK\",\"stateReason\":\"Threshold Crossed: no datapoints were received for 1 period and 1 missing datapoint was treated as [NonBreaching].\",\"stateReasonData\":{\"version\":\"1.0\",\"queryDate\":\"2026-09-21T15:29:52.987+0000\",\"statistic\":\"Sum\",\"period\":300,\"recentDatapoints\":[],\"threshold\":1.0,\"evaluatedDatapoints\":[{\"timestamp\":\"2026-09-21T15:22:00.000+0000\"}]}}}"
+        }
+    ],
+    "NextToken": "<redacted-pagination-token>"
+}
+
+## SNS attributes
+
+aws: [ERROR]: An error occurred (InvalidParameter) when calling the GetTopicAttributes operation: Invalid parameter: TopicArn Reason: An ARN must have at least 6 elements, not 1
+
+## Slack notifier Lambda logs
+{
+    "events": [
+        {
+            "logStreamName": "2026/09/23/[$LATEST]f3c487ca0ef84f6496c5a1da0d369fef",
+            "timestamp": 1790184461969,
+            "message": "START RequestId: a04bf08f-f818-40df-b9ca-cc923b2eacf8 Version: $LATEST\n",
+            "ingestionTime": 1790184470988,
+            "eventId": "39922447544739303680164620581167757280278812206586331136"
+        },
+        {
+            "logStreamName": "2026/09/23/[$LATEST]509fdce3b20c49c681ce0aa358ff2140",
+            "timestamp": 1790184462012,
+            "message": "START RequestId: 3e35240d-bcee-45e1-9c33-29901d87dbf6 Version: $LATEST\n",
+            "ingestionTime": 1790184471030,
+            "eventId": "39922447545698235723701437376304873981579502638774419456"
+        },
+        {
+            "logStreamName": "2026/09/23/[$LATEST]509fdce3b20c49c681ce0aa358ff2140",
+            "timestamp": 1790184462428,
+            "message": "2026-09-23T17:27:42.428Z\t3e35240d-bcee-45e1-9c33-29901d87dbf6\tINFO\t{\"msg\":\"duplicate alert (same alarm/state/reason via a different delivery path), skipping Slack post\",\"messageId\":\"30efff62-b0c3-59f9-b71e-9c4cbe8ee8b6\"}\n",
+            "ingestionTime": 1790184471030,
+            "eventId": "39922447554975345726290176603183732783001221025262272513"
+        },
+        {
+            "logStreamName": "2026/09/23/[$LATEST]509fdce3b20c49c681ce0aa358ff2140",
+            "timestamp": 1790184462460,
+            "message": "END RequestId: 3e35240d-bcee-45e1-9c33-29901d87dbf6\n",
+            "ingestionTime": 1790184471030,
+            "eventId": "39922447555688969572643156543712875767725968593453645826"
+        },
+        {
+            "logStreamName": "2026/09/23/[$LATEST]509fdce3b20c49c681ce0aa358ff2140",
+            "timestamp": 1790184462460,
+            "message": "REPORT RequestId: 3e35240d-bcee-45e1-9c33-29901d87dbf6\tDuration: 448.11 ms\tBilled Duration: 449 ms\tMemory Size: 128 MB\tMax Memory Used: 103 MB\t\n",
+            "ingestionTime": 1790184471030,
+            "eventId": "39922447555688969572643156543712875767725968593453645827"
+        },
+        {
+            "logStreamName": "2026/09/23/[$LATEST]f3c487ca0ef84f6496c5a1da0d369fef",
+            "timestamp": 1790184462490,
+            "message": "END RequestId: a04bf08f-f818-40df-b9ca-cc923b2eacf8\n",
+            "ingestionTime": 1790184470988,
+            "eventId": "39922447556357991928599075237907866500328608551202127873"
+        },
+        {
+            "logStreamName": "2026/09/23/[$LATEST]f3c487ca0ef84f6496c5a1da0d369fef",
+            "timestamp": 1790184462490,
+            "message": "REPORT RequestId: a04bf08f-f818-40df-b9ca-cc923b2eacf8\tDuration: 521.03 ms\tBilled Duration: 522 ms\tMemory Size: 128 MB\tMax Memory Used: 101 MB\t\n",
+            "ingestionTime": 1790184470988,
+            "eventId": "39922447556357991928599075237907866500328608551202127874"
+        }
+    ],
+    "searchedLogStreams": []
+}
+
+## Set OK/recovery
+
+## Recovered state
+{
+    "MetricAlarms": [
+        {
+            "AlarmName": "devops-g5-pos-5xx",
+            "AlarmArn": "arn:aws:cloudwatch:eu-west-1:240462142849:alarm:devops-g5-pos-5xx",
+            "AlarmDescription": "pos target group returned a 5xx - see docs/runbook.md",
+            "AlarmConfigurationUpdatedTimestamp": "2026-09-16T15:19:00.476000+03:00",
+            "ActionsEnabled": true,
+            "OKActions": [
+                "arn:aws:sns:eu-west-1:240462142849:devops-g5-alerts"
+            ],
+            "AlarmActions": [
+                "arn:aws:sns:eu-west-1:240462142849:devops-g5-alerts"
+            ],
+            "InsufficientDataActions": [],
+            "StateValue": "OK",
+            "StateReason": "G3 evidence recovery 2026-09-23T17:26:35Z",
+            "StateUpdatedTimestamp": "2026-09-23T20:28:08.931000+03:00",
+            "MetricName": "HTTPCode_Target_5XX_Count",
+            "Namespace": "AWS/ApplicationELB",
+            "Statistic": "Sum",
+            "Dimensions": [
+                {
+                    "Name": "LoadBalancer",
+                    "Value": "app/devops-g5-alb/e051239450c15c98"
+                },
+                {
+                    "Name": "TargetGroup",
+                    "Value": "targetgroup/devops-g5-pos-tg/82b63f0b888ec77f"
+                }
+            ],
+            "Period": 300,
+            "EvaluationPeriods": 1,
+            "Threshold": 1.0,
+            "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+            "TreatMissingData": "notBreaching",
+            "StateTransitionedTimestamp": "2026-09-23T20:28:08.931000+03:00"
+        }
+    ],
+    "CompositeAlarms": [],
+    "LogAlarms": []
+}
+
+## Final alarm history
+{
+    "AlarmHistoryItems": [
+        {
+            "AlarmName": "devops-g5-pos-5xx",
+            "AlarmType": "MetricAlarm",
+            "Timestamp": "2026-09-23T20:28:08.931000+03:00",
+            "HistoryItemType": "StateUpdate",
+            "HistorySummary": "Alarm updated from ALARM to OK",
+            "HistoryData": "{\"version\":\"1.0\",\"oldState\":{\"stateValue\":\"ALARM\",\"stateReason\":\"G3 evidence test 2026-09-23T17:26:35Z\"},\"newState\":{\"stateValue\":\"OK\",\"stateReason\":\"G3 evidence recovery 2026-09-23T17:26:35Z\"}}"
+        },
+        {
+            "AlarmName": "devops-g5-pos-5xx",
+            "AlarmType": "MetricAlarm",
+            "Timestamp": "2026-09-23T20:27:41.817000+03:00",
+            "HistoryItemType": "StateUpdate",
+            "HistorySummary": "Alarm updated from OK to ALARM",
+            "HistoryData": "{\"version\":\"1.0\",\"oldState\":{\"stateValue\":\"OK\",\"stateReason\":\"Threshold Crossed: no datapoints were received for 1 period and 1 missing datapoint was treated as [NonBreaching].\",\"stateReasonData\":{\"version\":\"1.0\",\"queryDate\":\"2026-09-23T17:23:27.416+0000\",\"statistic\":\"Sum\",\"period\":300,\"recentDatapoints\":[],\"threshold\":1.0,\"evaluatedDatapoints\":[{\"timestamp\":\"2026-09-23T17:16:00.000+0000\"}]}},\"newState\":{\"stateValue\":\"ALARM\",\"stateReason\":\"G3 evidence test 2026-09-23T17:26:35Z\"}}"
+        },
+        {
+            "AlarmName": "devops-g5-pos-5xx",
+            "AlarmType": "MetricAlarm",
+            "Timestamp": "2026-09-23T20:23:27.417000+03:00",
+            "HistoryItemType": "StateUpdate",
+            "HistorySummary": "Alarm updated from ALARM to OK",
+            "HistoryData": "{\"version\":\"1.0\",\"oldState\":{\"stateValue\":\"ALARM\",\"stateReason\":\"G3 evidence test 2026-09-23T17:22:12Z\"},\"newState\":{\"stateValue\":\"OK\",\"stateReason\":\"Threshold Crossed: no datapoints were received for 1 period and 1 missing datapoint was treated as [NonBreaching].\",\"stateReasonData\":{\"version\":\"1.0\",\"queryDate\":\"2026-09-23T17:23:27.416+0000\",\"statistic\":\"Sum\",\"period\":300,\"recentDatapoints\":[],\"threshold\":1.0,\"evaluatedDatapoints\":[{\"timestamp\":\"2026-09-23T17:16:00.000+0000\"}]}}}"
+        },
+        {
+            "AlarmName": "devops-g5-pos-5xx",
+            "AlarmType": "MetricAlarm",
+            "Timestamp": "2026-09-23T20:22:24.994000+03:00",
+            "HistoryItemType": "StateUpdate",
+            "HistorySummary": "Alarm updated from OK to ALARM",
+            "HistoryData": "{\"version\":\"1.0\",\"oldState\":{\"stateValue\":\"OK\",\"stateReason\":\"G3 evidence recovery 2026-09-23T17:12:31Z\"},\"newState\":{\"stateValue\":\"ALARM\",\"stateReason\":\"G3 evidence test 2026-09-23T17:22:12Z\"}}"
+        },
+        {
+            "AlarmName": "devops-g5-pos-5xx",
+            "AlarmType": "MetricAlarm",
+            "Timestamp": "2026-09-23T20:12:50.697000+03:00",
+            "HistoryItemType": "StateUpdate",
+            "HistorySummary": "Alarm updated from ALARM to OK",
+            "HistoryData": "{\"version\":\"1.0\",\"oldState\":{\"stateValue\":\"ALARM\",\"stateReason\":\"G3 evidence test 2026-09-23T17:12:31Z\"},\"newState\":{\"stateValue\":\"OK\",\"stateReason\":\"G3 evidence recovery 2026-09-23T17:12:31Z\"}}"
+        },
+        {
+            "AlarmName": "devops-g5-pos-5xx",
+            "AlarmType": "MetricAlarm",
+            "Timestamp": "2026-09-23T20:12:34.452000+03:00",
+            "HistoryItemType": "StateUpdate",
+            "HistorySummary": "Alarm updated from OK to ALARM",
+            "HistoryData": "{\"version\":\"1.0\",\"oldState\":{\"stateValue\":\"OK\",\"stateReason\":\"cleanup after dedup fix verification\"},\"newState\":{\"stateValue\":\"ALARM\",\"stateReason\":\"G3 evidence test 2026-09-23T17:12:31Z\"}}"
+        },
+        {
+            "AlarmName": "devops-g5-pos-5xx",
+            "AlarmType": "MetricAlarm",
+            "Timestamp": "2026-09-21T18:32:37.623000+03:00",
+            "HistoryItemType": "StateUpdate",
+            "HistorySummary": "Alarm updated from ALARM to OK",
+            "HistoryData": "{\"version\":\"1.0\",\"oldState\":{\"stateValue\":\"ALARM\",\"stateReason\":\"Verifying the semantic dedup fix\"},\"newState\":{\"stateValue\":\"OK\",\"stateReason\":\"cleanup after dedup fix verification\"}}"
+        },
+        {
+            "AlarmName": "devops-g5-pos-5xx",
+            "AlarmType": "MetricAlarm",
+            "Timestamp": "2026-09-21T18:32:03.925000+03:00",
+            "HistoryItemType": "StateUpdate",
+            "HistorySummary": "Alarm updated from OK to ALARM",
+            "HistoryData": "{\"version\":\"1.0\",\"oldState\":{\"stateValue\":\"OK\",\"stateReason\":\"Threshold Crossed: no datapoints were received for 1 period and 1 missing datapoint was treated as [NonBreaching].\",\"stateReasonData\":{\"version\":\"1.0\",\"queryDate\":\"2026-09-21T15:31:02.787+0000\",\"statistic\":\"Sum\",\"period\":300,\"recentDatapoints\":[],\"threshold\":1.0,\"evaluatedDatapoints\":[{\"timestamp\":\"2026-09-21T15:24:00.000+0000\"}]}},\"newState\":{\"stateValue\":\"ALARM\",\"stateReason\":\"Verifying the semantic dedup fix\"}}"
+        },
+        {
+            "AlarmName": "devops-g5-pos-5xx",
+            "AlarmType": "MetricAlarm",
+            "Timestamp": "2026-09-21T18:31:02.788000+03:00",
+            "HistoryItemType": "StateUpdate",
+            "HistorySummary": "Alarm updated from ALARM to OK",
+            "HistoryData": "{\"version\":\"1.0\",\"oldState\":{\"stateValue\":\"ALARM\",\"stateReason\":\"Diagnostic raw message capture\"},\"newState\":{\"stateValue\":\"OK\",\"stateReason\":\"Threshold Crossed: no datapoints were received for 1 period and 1 missing datapoint was treated as [NonBreaching].\",\"stateReasonData\":{\"version\":\"1.0\",\"queryDate\":\"2026-09-21T15:31:02.787+0000\",\"statistic\":\"Sum\",\"period\":300,\"recentDatapoints\":[],\"threshold\":1.0,\"evaluatedDatapoints\":[{\"timestamp\":\"2026-09-21T15:24:00.000+0000\"}]}}}"
+        },
+        {
+            "AlarmName": "devops-g5-pos-5xx",
+            "AlarmType": "MetricAlarm",
+            "Timestamp": "2026-09-21T18:30:12.038000+03:00",
+            "HistoryItemType": "StateUpdate",
+            "HistorySummary": "Alarm updated from OK to ALARM",
+            "HistoryData": "{\"version\":\"1.0\",\"oldState\":{\"stateValue\":\"OK\",\"stateReason\":\"Threshold Crossed: no datapoints were received for 1 period and 1 missing datapoint was treated as [NonBreaching].\",\"stateReasonData\":{\"version\":\"1.0\",\"queryDate\":\"2026-09-21T15:29:52.987+0000\",\"statistic\":\"Sum\",\"period\":300,\"recentDatapoints\":[],\"threshold\":1.0,\"evaluatedDatapoints\":[{\"timestamp\":\"2026-09-21T15:22:00.000+0000\"}]}},\"newState\":{\"stateValue\":\"ALARM\",\"stateReason\":\"Diagnostic raw message capture\"}}"
+        }
+    ],
+    "NextToken": "<redacted-pagination-token>"
+}
