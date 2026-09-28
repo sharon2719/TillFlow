@@ -22,3 +22,5 @@ infra/.build/
 Thumbs.db
 __pycache__/
 infra/tfplan-destroy
+infra/tfplan-rebuild
+infra/tfplan

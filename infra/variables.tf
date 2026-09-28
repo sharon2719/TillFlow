@@ -1,3 +1,9 @@
+variable "aws_profile" {
+  description = "AWS CLI profile for local runs (SSO). CI uses OIDC and sets this to \"default\"."
+  type        = string
+  default     = "devops-g5"
+}
+
 variable "name_prefix" {
   description = "Resource name prefix. devops-g5 per the cohort's SSO role (group 5) — see docs/adr/0004-object-storage.md."
   type        = string

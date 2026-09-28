@@ -53,31 +53,38 @@ node classes.
 
 ## Tear-down / rebuild via `terraform destroy` + reapply
 
-**Still not run as of 2026-09-21.** This is the highest-blast-radius action in the entire G5
-checklist - it takes down every live service, and a failed or slow reapply would leave
-nothing running right before a live defence. That caution turned out to be justified, not
-theoretical: a single, much smaller `terraform apply` earlier today (adding a few env vars
-and an ALB health-check path) chained into three real, compounding incidents in a row
-(`docs/scar-log.md`) - a health-check ordering bug, a config-drift bug where an out-of-band
-fix got silently undone by the next apply, and a previously-undiscovered gap where task
-definitions can silently point at a nonexistent image. A full destroy + reapply is that same
-class of risk at maximum scale, on every resource at once, not a handful. Running it needs
-an explicit, deliberate go/no-go from whoever owns the timing decision - this file documents
-the plan so it's ready to execute the moment that's confirmed, and today's incidents are
-exactly the reason to run it only with someone actively watching each step, not unattended:
+**Status: ready to execute.** The script and evidence template are in place.
+See `evidence/platform-delivery/g5-destroy-rebuild-TEMPLATE.md` for the evidence
+template to fill in after the run.
 
-**Plan when it runs:**
-1. `terraform plan -destroy` first, reviewed, not blind.
-2. Capture a fresh `aws resourcegroupstaggingapi get-resources` + ECR image list
-   *before* destroying, so there's a real "what existed" snapshot to diff against after
-   reapply (proves reapply reconstructs the same shape, not just "something exists").
-3. `terraform destroy`.
-4. `terraform apply` (bootstrap image tags - the real running revisions come from each
-   service's deploy pipeline afterward, same as the very first deploy ever did).
-5. Re-run each service's deploy workflow (or accept `bootstrap` images temporarily) to get
-   real SHA-tagged images running again.
-6. Re-populate every out-of-band secret (Daraja credentials, Grafana admin password, Slack
-   webhook if set) - Terraform only ever manages placeholders for these by design
-   (`lifecycle.ignore_changes = [secret_string]`), so a fresh apply does NOT restore them.
-7. Confirm RTO in practice (wall-clock time from `destroy` start to all 5 services healthy
-   again) and record it - this number, not an estimate, is the actual G5 deliverable here.
+The caution documented here on 2026-09-21 was justified: a smaller `terraform apply`
+that day chained into three compounding incidents (`docs/scar-log.md`). The full
+destroy + reapply is that same class of risk at maximum scale. Run it with someone
+actively watching each step.
+
+**Procedure (automated by `infra/scripts/rebuild.sh`):**
+
+```bash
+export AWS_REGION=eu-west-1
+# 1. Review the destroy plan first — no changes applied:
+./infra/scripts/rebuild.sh --plan-only
+# 2. Execute the full run after reviewing the plan:
+./infra/scripts/rebuild.sh --auto-approve
+```
+
+The script runs these steps and tees all output to a dated log under `evidence/platform-delivery/`:
+
+1. Pre-destroy inventory: `aws resourcegroupstaggingapi get-resources` + ECR image list,
+   so there is a real "what existed" snapshot to diff against after reapply.
+2. `terraform plan -destroy` — reviewed, not blind.
+3. `terraform apply tfplan-destroy`.
+4. `terraform apply tfplan-rebuild` — reconstructs all resources from code.
+5. Post-rebuild ECS task count check (all five services must reach 1/1).
+6. Public endpoint health check (`GET /health` must return HTTP 200).
+7. RTO recorded as wall-clock time from destroy start to first 200.
+
+**After the run:** re-populate out-of-band secrets (Daraja credentials, Grafana admin
+password, Slack webhook) — Terraform manages placeholders only
+(`lifecycle.ignore_changes = [secret_string]`), so a fresh apply does not restore them.
+Then fill in `evidence/platform-delivery/g5-destroy-rebuild-TEMPLATE.md`, rename it
+with the run date, and commit it. That committed file is the G5 gate evidence.
