@@ -16,20 +16,16 @@ documentation.
 ## Current gate status
 
 The repo follows an evidence-first gate model: a gate is only marked PASS once its required
-proof is captured and committed. G3, G4, and G5 are under active verification and are not
-claimed complete until the live evidence is recorded.
+proof is captured and committed. All gates G0–G5 are now PASS.
 
-Repo governance and review mapping are implemented. The remaining work is live gate-evidence
-execution, rather than additional repo scaffolding:
-
-1. G3 alert firing -> recovery evidence;
-2. G3 sale/payment/callback trace;
-3. G3 scheduled commission trace;
-4. G4 callback replay/reorder drill;
-5. G4 DLQ redrive drill;
-6. G5 destroy -> rebuild -> live-200 run;
-7. final README and documentation status pass;
-8. final repo-wide consistency review.
+| Gate | Status | Blocking evidence |
+|---|---|---|
+| G0 | PASS | [ownership.md](docs/ownership.md), [threat-model.md](docs/threat-model.md) |
+| G1 | PASS | [evidence/platform-delivery](evidence/platform-delivery), ADOT HEALTHY ordering, saved-plan apply |
+| G2 | PASS | [evidence/payments-integrity/money-path-invariants-2026-09-18.md](evidence/payments-integrity/money-path-invariants-2026-09-18.md) |
+| G3 | PASS | [alert-firing-recovery-2026-09-23.txt](evidence/reliability-operations/alert-firing-recovery-2026-09-23.txt), [sale-payment-callback-trace-2026-09-24.md](evidence/payments-integrity/sale-payment-callback-trace-2026-09-24.md), [commission-trace-2026-09-24.md](evidence/payments-integrity/commission-trace-2026-09-24.md) |
+| G4 | PASS | [callback-replay-reorder-drill-2026-09-24.md](evidence/payments-integrity/callback-replay-reorder-drill-2026-09-24.md), [dlq-redrive-drill-2026-09-24.md](evidence/reliability-operations/dlq-redrive-drill-2026-09-24.md) |
+| G5 | PASS | [g5-destroy-rebuild-2026-09-28.txt](evidence/platform-delivery/g5-destroy-rebuild-2026-09-28.txt) — destroy (215 resources) + rebuild (203 resources) + HTTP 200 at 18:17:19Z |
 
 **Status rule:** do not mark any gate `PASS` until its dated evidence file exists, is
 committed under `evidence/`, linked from the relevant README or gate document, and proves
