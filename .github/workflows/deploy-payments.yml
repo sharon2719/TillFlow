@@ -8,7 +8,8 @@ on:
       - "services/_shared/**"
       - ".github/workflows/deploy-payments.yml"
   workflow_dispatch: {}
-  workflow_call: {}permissions:
+  workflow_call: {}
+permissions:
   id-token: write
   contents: read
 
