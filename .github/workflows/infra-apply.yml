@@ -53,6 +53,7 @@ jobs:
           path: |
             infra/tfplan
             infra/tfplan.txt
+            infra/.build/
           retention-days: 7
 
   apply:
