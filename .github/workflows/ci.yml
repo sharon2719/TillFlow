@@ -268,6 +268,9 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     needs: [pos, payments, commission, web, grafana, terraform, security-scan]
     uses: ./.github/workflows/deploy-pos.yml
+    permissions:
+      id-token: write
+      contents: read
     secrets: inherit
 
   deploy-payments:
@@ -275,6 +278,9 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     needs: [pos, payments, commission, web, grafana, terraform, security-scan]
     uses: ./.github/workflows/deploy-payments.yml
+    permissions:
+      id-token: write
+      contents: read
     secrets: inherit
 
   deploy-commission:
@@ -282,6 +288,9 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     needs: [pos, payments, commission, web, grafana, terraform, security-scan]
     uses: ./.github/workflows/deploy-commission.yml
+    permissions:
+      id-token: write
+      contents: read
     secrets: inherit
 
   deploy-web:
@@ -289,6 +298,9 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     needs: [pos, payments, commission, web, grafana, terraform, security-scan]
     uses: ./.github/workflows/deploy-web.yml
+    permissions:
+      id-token: write
+      contents: read
     secrets: inherit
 
   deploy-grafana:
@@ -296,4 +308,7 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     needs: [pos, payments, commission, web, grafana, terraform, security-scan]
     uses: ./.github/workflows/deploy-grafana.yml
+    permissions:
+      id-token: write
+      contents: read
     secrets: inherit
