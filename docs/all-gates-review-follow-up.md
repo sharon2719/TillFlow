@@ -16,7 +16,8 @@ Execute the remaining work in this order:
 3. DONE: capture, document, and commit the G3 scheduled commission trace.
 4. DONE: capture, document, and commit the G4 callback replay/reorder drill.
 5. DONE: capture, document, and commit the G4 DLQ redrive drill.
-6. Capture, document, and commit the G5 destroy → rebuild run.
+6. DONE: execute, capture, and commit the G5 destroy → rebuild run
+   (evidence committed at `evidence/platform-delivery/g5-destroy-rebuild-2026-09-28.txt`).
 7. Perform the final README and documentation status pass.
 8. Run a final repo-wide consistency review.
 
@@ -29,7 +30,7 @@ Execute the remaining work in this order:
 | G2 | PASS | [evidence/payments-integrity](../evidence/payments-integrity) | Money-path invariants and replay-safety evidence are committed. |
 | G3 | PASS | [evidence/payments-integrity/sale-payment-callback-trace-2026-09-24.md](../evidence/payments-integrity/sale-payment-callback-trace-2026-09-24.md), [evidence/payments-integrity/commission-trace-2026-09-24.md](../evidence/payments-integrity/commission-trace-2026-09-24.md), [evidence/reliability-operations/alert-firing-recovery-2026-09-23.txt](../evidence/reliability-operations/alert-firing-recovery-2026-09-23.txt) | All three proof items captured live: alert firing/recovery, sale→payment→callback trace, commission trace with B2C. |
 | G4 | PASS | [evidence/payments-integrity/callback-replay-reorder-drill-2026-09-24.md](../evidence/payments-integrity/callback-replay-reorder-drill-2026-09-24.md), [evidence/reliability-operations/dlq-redrive-drill-2026-09-24.md](../evidence/reliability-operations/dlq-redrive-drill-2026-09-24.md), [docs/recovery-drills.md](./recovery-drills.md) | Replay/reorder drill and DLQ redrive drill both executed live with timestamped evidence. |
-| G5 | Planned execution | [docs/cost-and-teardown.md](./cost-and-teardown.md) | Destroy → rebuild has a written procedure but not a recorded executed run. |
+| G5 | PASS | [evidence/platform-delivery/g5-destroy-rebuild-2026-09-28.txt](../evidence/platform-delivery/g5-destroy-rebuild-2026-09-28.txt) | Destroy + rebuild executed live 2026-09-28. All 215 resources destroyed, 203 rebuilt. All 5 ECS services 1/1 ACTIVE. Public endpoint returned HTTP 200 at 18:17:19Z. New API endpoint: https://2tk56g7b1a.execute-api.eu-west-1.amazonaws.com |
 
 ## Review follow-up log
 
@@ -42,7 +43,7 @@ Execute the remaining work in this order:
 | Scheduled commission trace | DONE | [evidence/payments-integrity/commission-trace-2026-09-24.md](../evidence/payments-integrity/commission-trace-2026-09-24.md) | Live trace captured 2026-09-24: commission close→B2C call to payments via internal ALB with traceparent propagation. |
 | Callback replay/reorder drill | DONE | [evidence/payments-integrity/callback-replay-reorder-drill-2026-09-24.md](../evidence/payments-integrity/callback-replay-reorder-drill-2026-09-24.md) | Live drill 2026-09-24: 3 callbacks (real + replay + reorder), 1 state transition, 0 duplicate ledger effects. |
 | DLQ redrive drill | DONE | [evidence/reliability-operations/dlq-redrive-drill-2026-09-24.md](../evidence/reliability-operations/dlq-redrive-drill-2026-09-24.md) | Live drill 2026-09-24: poison message → 5 worker failures → DLQ → redrive → DLQ drained. |
-| Destroy → rebuild run | PLANNED | [docs/cost-and-teardown.md](./cost-and-teardown.md) | Schedule, execute, and capture the full rebuild flow. |
+| Destroy → rebuild run | DONE | [evidence/platform-delivery/g5-destroy-rebuild-2026-09-28.txt](../evidence/platform-delivery/g5-destroy-rebuild-2026-09-28.txt) | Executed live 2026-09-28. Destroy (215 resources) + rebuild (203 resources) + post-rebuild HTTP 200 all captured. |}
 
 ## Evidence standards
 
