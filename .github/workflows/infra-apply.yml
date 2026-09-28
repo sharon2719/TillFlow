@@ -53,6 +53,7 @@ jobs:
           path: |
             infra/tfplan
             infra/tfplan.txt
+            infra/.build/
           retention-days: 7
 
   apply:
@@ -81,6 +82,9 @@ jobs:
         with:
           name: terraform-plan-${{ github.run_id }}
           path: infra
+          # .build/*.zip is included so the apply runner has the exact same Lambda
+          # packages that were hashed during plan — without them terraform apply
+          # fails trying to read the zips even though the plan already captured the hash
 
       - name: Apply reviewed plan
         working-directory: infra
