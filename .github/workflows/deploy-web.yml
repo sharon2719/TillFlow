@@ -7,8 +7,7 @@ on:
       - "services/web/**"
       - ".github/workflows/deploy-web.yml"
   workflow_dispatch: {}
-
-permissions:
+  workflow_call: {}permissions:
   id-token: write
   contents: read
 
