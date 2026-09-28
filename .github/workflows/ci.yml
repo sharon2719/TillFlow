@@ -235,7 +235,7 @@ jobs:
         working-directory: infra
         run: |
           terraform init -input=false
-          terraform plan -input=false -no-color
+          terraform plan -input=false -var aws_profile=default -no-color
 
   security-scan:
     name: secrets + dependency + IaC scan
@@ -262,3 +262,38 @@ jobs:
 
   # Gated apply on merge to master lives in .github/workflows/infra-apply.yml, not here -
   # separate workflow so it can target its own GitHub Environment approval gate.
+
+  deploy-pos:
+    name: deploy pos (master only)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    needs: [pos, payments, commission, web, grafana, terraform, security-scan]
+    uses: ./.github/workflows/deploy-pos.yml
+    secrets: inherit
+
+  deploy-payments:
+    name: deploy payments (master only)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    needs: [pos, payments, commission, web, grafana, terraform, security-scan]
+    uses: ./.github/workflows/deploy-payments.yml
+    secrets: inherit
+
+  deploy-commission:
+    name: deploy commission (master only)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    needs: [pos, payments, commission, web, grafana, terraform, security-scan]
+    uses: ./.github/workflows/deploy-commission.yml
+    secrets: inherit
+
+  deploy-web:
+    name: deploy web (master only)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    needs: [pos, payments, commission, web, grafana, terraform, security-scan]
+    uses: ./.github/workflows/deploy-web.yml
+    secrets: inherit
+
+  deploy-grafana:
+    name: deploy grafana (master only)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    needs: [pos, payments, commission, web, grafana, terraform, security-scan]
+    uses: ./.github/workflows/deploy-grafana.yml
+    secrets: inherit
