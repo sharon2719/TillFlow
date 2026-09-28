@@ -43,7 +43,7 @@ jobs:
         working-directory: infra
         run: |
           terraform init -input=false
-          terraform plan -input=false -var aws_profile=default -out=tfplan
+          terraform plan -input=false -var aws_profile= -out=tfplan
           terraform show -no-color tfplan > tfplan.txt
 
       - name: Upload reviewed plan artifact

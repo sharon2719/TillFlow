@@ -235,7 +235,7 @@ jobs:
         working-directory: infra
         run: |
           terraform init -input=false
-          terraform plan -input=false -var aws_profile=default -no-color
+          terraform plan -input=false -var aws_profile= -no-color
 
   security-scan:
     name: secrets + dependency + IaC scan

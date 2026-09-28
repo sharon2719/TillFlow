@@ -1,5 +1,5 @@
 variable "aws_profile" {
-  description = "AWS CLI profile for local runs (SSO). CI uses OIDC and sets this to \"default\"."
+  description = "AWS CLI profile for local runs (SSO). CI uses OIDC and leaves this empty."
   type        = string
   default     = "devops-g5"
 }
